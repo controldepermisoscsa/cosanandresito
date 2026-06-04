@@ -1,0 +1,75 @@
+/* Colores globales */
+:root {
+  --naranja-claro: #f39c12;
+  --naranja-hover: #e67e22;
+  --blanco: #ffffff;
+  --gris-claro: #f4f4f9;
+  --gris-borde: #ddd;
+  --texto: #333;
+}
+
+/* Estilo general */
+body {
+  font-family: Arial, sans-serif;
+  background-color: var(--gris-claro);
+  margin: 0;
+  padding: 0;
+}
+
+/* Contenedor principal */
+.container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* Títulos */
+h1, h2 {
+  color: var(--texto);
+  text-align: center;
+}
+
+/* Botones */
+button, .btn {
+  background-color: var(--naranja-claro);
+  color: var(--blanco);
+  border: none;
+  padding: 10px 20px;
+  border-radius: 5px;
+  cursor: pointer;
+  font-size: 14px;
+  text-decoration: none;
+  display: inline-block;
+  text-align: center;
+  transition: background-color 0.3s;
+}
+
+button:hover, .btn:hover {
+  background-color: var(--naranja-hover);
+}
+
+/* Tablas */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 20px;
+}
+
+table th, table td {
+  border: 1px solid var(--gris-borde);
+  padding: 8px;
+  text-align: left;
+}
+
+table th {
+  background-color: var(--gris-claro);
+}
+
+/* Botones específicos */
+.btn-approve {
+  background-color: #2ecc71;
+}
+
+.btn-reject {
+  background-color: var(--naranja-hover);
+}
