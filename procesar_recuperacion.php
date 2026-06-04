@@ -40,11 +40,11 @@ try {
 	if ($allowedSecs !== $requestedSecs) throw new Exception('El intervalo contiene horas fuera de los horarios permitidos');
 
 	// Comprobar tiempo pendiente del usuario
-	$stmt = $pdo->prepare("SELECT TIME_TO_SEC(tiempo_pendiente_recuperar) as secs FROM usuarios WHERE id_usuario = ?");
+	$stmt = $pdo->prepare("SELECT EXTRACT(EPOCH FROM tiempo_pendiente_recuperar)::int AS secs FROM usuarios WHERE id_usuario = ?");
 	$stmt->execute([$id_usuario]);
 	$userSecs = intval($stmt->fetchColumn() ?? 0);
 	if ($userSecs <= 0) {
-		$stmt = $pdo->prepare("SELECT COALESCE(SUM(TIME_TO_SEC(tiempo_a_recuperar)),0) FROM recuperacion_tiempo WHERE id_usuario = ? AND estado IN ('pendiente','aprobado')");
+		$stmt = $pdo->prepare("SELECT COALESCE(SUM(EXTRACT(EPOCH FROM tiempo_a_recuperar)::int), 0) FROM recuperacion_tiempo WHERE id_usuario = ? AND estado IN ('pendiente','aprobado')");
 		$stmt->execute([$id_usuario]);
 		$userSecs = intval($stmt->fetchColumn() ?? 0);
 	}
@@ -57,7 +57,7 @@ try {
 			fecha_inicio_recuperacion, hora_inicio_recuperacion,
 			fecha_fin_recuperacion, hora_fin_recuperacion,
 			tiempo_a_recuperar, tiempo_recuperado, estado
-		) VALUES (?, ?, CURDATE(), CURTIME(), ?, ?, ?, ?, ?, '00:00:00', 'pendiente')
+		) VALUES (?, ?, CURRENT_DATE, CURRENT_TIME, ?, ?, ?, ?, ?, '00:00:00', 'pendiente')
 	");
 	$result = $stmt->execute([
 		$id_usuario,

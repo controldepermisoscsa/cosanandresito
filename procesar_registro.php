@@ -4,12 +4,13 @@ require 'conexion.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $nombre = $_POST['nombre'] ?? '';
     $usuario = $_POST['usuario'] ?? '';
-    $telefono = $_POST['telefono'] ?? '';
+    $telefono = !empty($_POST['telefono']) ? $_POST['telefono'] : null;
     $correo = $_POST['correo'] ?? '';
     $password = $_POST['password'] ?? '';
     $confirmar_password = $_POST['confirmar_password'] ?? '';
     $id_cargo = $_POST['id_cargo'] ?? '';
-    $area = $_POST['area'] ?? '';
+    // PostgreSQL no acepta '' en ENUM — convertir vacío a NULL
+    $area = !empty($_POST['area']) ? $_POST['area'] : null;
 
     // Validar que las contraseñas coincidan
     if ($password !== $confirmar_password) {

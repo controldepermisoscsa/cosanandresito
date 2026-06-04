@@ -14,13 +14,13 @@ $nombre = $_SESSION['nombre'] ?? 'Usuario';
 $id_permiso = isset($_GET['id_permiso']) ? intval($_GET['id_permiso']) : null;
 
 // Obtener tiempo pendiente desde usuarios.tiempo_pendiente_recuperar o sumatoria en recuperacion_tiempo
-$stmt = $pdo->prepare("SELECT TIME_TO_SEC(tiempo_pendiente_recuperar) as secs FROM usuarios WHERE id_usuario = ?");
+$stmt = $pdo->prepare("SELECT EXTRACT(EPOCH FROM tiempo_pendiente_recuperar)::int AS secs FROM usuarios WHERE id_usuario = ?");
 $stmt->execute([$id_usuario]);
 $data = $stmt->fetch(PDO::FETCH_ASSOC);
 $pendingSecs = intval($data['secs'] ?? 0);
 
 if ($pendingSecs <= 0) {
-	$stmt = $pdo->prepare("SELECT COALESCE(SUM(TIME_TO_SEC(tiempo_a_recuperar)),0) as sumsecs FROM recuperacion_tiempo WHERE id_usuario = ? AND estado IN ('pendiente','aprobado')");
+	$stmt = $pdo->prepare("SELECT COALESCE(SUM(EXTRACT(EPOCH FROM tiempo_a_recuperar)::int), 0) AS sumsecs FROM recuperacion_tiempo WHERE id_usuario = ? AND estado IN ('pendiente','aprobado')");
 	$stmt->execute([$id_usuario]);
 	$pendingSecs = intval($stmt->fetchColumn() ?? 0);
 }
@@ -103,7 +103,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 								fecha_inicio_recuperacion, hora_inicio_recuperacion,
 								fecha_fin_recuperacion, hora_fin_recuperacion,
 								tiempo_a_recuperar, tiempo_recuperado, estado
-							) VALUES (?, ?, CURDATE(), CURTIME(), ?, ?, ?, ?, ?, '00:00:00', 'pendiente')
+							) VALUES (?, ?, CURRENT_DATE, CURRENT_TIME, ?, ?, ?, ?, ?, '00:00:00', 'pendiente')
 						");
 						$tiempoARecuperar = secToTime($allowedSecs);
 						$ok = $stmt->execute([

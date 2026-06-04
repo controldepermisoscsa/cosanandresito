@@ -1,5 +1,6 @@
 <?php
-require_once 'config_correo.php';
+require_once __DIR__ . '/config_correo.php';
+require_once __DIR__ . '/config.php';
 
 class EstadoCorreoManager {
     
@@ -135,7 +136,7 @@ class EstadoCorreoManager {
                    <strong>Correo solicitante:</strong> {$permiso['correo_solicitante']}<br>
                    <strong>Archivo:</strong> " . basename($fullPath) . " ({$tamañoMB} MB)</p>
                 <p>Por favor, verifique el documento y proceda según las políticas internas.</p>
-                <p>Acceda al sistema: http://localhost/cosanandresito</p>
+                <p>Acceda al sistema: " . APP_URL . "</p>
                 <p>Atentamente,<br>Departamento de Control de Permisos<br>Coosanandresito</p>
             </body></html>";
 
@@ -145,7 +146,7 @@ class EstadoCorreoManager {
                 "Solicitante: {$permiso['nombre_solicitante']} ({$permiso['nombre_cargo']})\n" .
                 "Correo: {$permiso['correo_solicitante']}\n\n" .
                 "Archivo: " . basename($fullPath) . " ({$tamañoMB} MB)\n\n" .
-                "Acceda al sistema: http://localhost/cosanandresito\n\n" .
+                "Acceda al sistema: " . APP_URL . "\n\n" .
                 "Nota: Este PDF es confidencial y remitido exclusivamente a Gerencia.";
 
             $envio_exitoso = $mail->send();
@@ -154,7 +155,7 @@ class EstadoCorreoManager {
                 error_log("✅ PDF enviado (UNICO) a gerencia para permiso #{$id_permiso} (" . count($gerentes) . " destinatarios)");
                 // Crear notificaciones en BD para cada gerente
                 foreach ($gerentes as $gerente) {
-                    $mensaje_notif = "Documento PDF del permiso N°{$id_permiso} recibido para revisión confidencial. Acceda: http://localhost/cosanandresito";
+                    $mensaje_notif = "Documento PDF del permiso N°{$id_permiso} recibido para revisión confidencial. Acceda: " . APP_URL . "";
                     $this->crearNotificacion($gerente['id_usuario'], $mensaje_notif);
                 }
                 return true;
@@ -182,14 +183,14 @@ class EstadoCorreoManager {
         if (!$permiso) return false;
 
         // Email a gerente → "Solicitud del Coordinador"
-        $mensaje = "Tiene una solicitud de permiso N°{$id_permiso} enviada por el coordinador para su revisión. Acceda: http://localhost/cosanandresito";
+        $mensaje = "Tiene una solicitud de permiso N°{$id_permiso} enviada por el coordinador para su revisión. Acceda: " . APP_URL . "";
         $this->crearNotificacion($id_gerente, $mensaje);
 
         $asunto = "Control de Permisos - Solicitud enviada por Coordinador (Permiso N°{$id_permiso})";
         $correo = "Estimado(a) {$gerente['nombre']},\n\n";
         $correo .= "El coordinador ha enviado una solicitud de permiso N°{$id_permiso} para su revisión.\n";
         $correo .= "Solicitante original: {$permiso['nombre_solicitante']}\n\n";
-        $correo .= "Acceda al sistema: http://localhost/cosanandresito\n\n";
+        $correo .= "Acceda al sistema: " . APP_URL . "\n\n";
         $correo .= "Atentamente,\nSistema de Control de Permisos Coosanandresito";
 
         ConfigCorreo::enviarCorreo($gerente['correo'], $asunto, $correo, $gerente['nombre']);
@@ -213,21 +214,21 @@ class EstadoCorreoManager {
         if (!$solicitante || !$gerente) return false;
 
         // Email al solicitante → "Solicitud Reenviada Directa"
-        $this->crearNotificacion($id_solicitante, "Su solicitud #{$id_permiso} ha sido reenviada correctamente a la Gerencia. Acceda: http://localhost/cosanandresito");
+        $this->crearNotificacion($id_solicitante, "Su solicitud #{$id_permiso} ha sido reenviada correctamente a la Gerencia. Acceda: " . APP_URL . "");
         $asunto_sol = "Control de Permisos - Solicitud Reenviada";
         $correo_sol = "Estimado(a) {$solicitante['nombre']},\n\n";
         $correo_sol .= "Su solicitud corregida ha sido reenviada correctamente a la Gerencia.\n";
-        $correo_sol .= "Puede consultar el estado en: http://localhost/cosanandresito\n\n";
+        $correo_sol .= "Puede consultar el estado en: " . APP_URL . "\n\n";
         $correo_sol .= "Atentamente,\nSistema de Control de Permisos Coosanandresito";
 
         ConfigCorreo::enviarCorreo($solicitante['correo'], $asunto_sol, $correo_sol, $solicitante['nombre']);
 
         // Email a gerencia → "Solicitud Corregida Recibida"
-        $this->crearNotificacion($id_gerente, "Solicitud #{$id_permiso} de {$solicitante['nombre']} ha sido corregida y reenviada para revisión. Acceda: http://localhost/cosanandresito");
+        $this->crearNotificacion($id_gerente, "Solicitud #{$id_permiso} de {$solicitante['nombre']} ha sido corregida y reenviada para revisión. Acceda: " . APP_URL . "");
         $asunto_ger = "Control de Permisos - Solicitud Corregida (Permiso N°{$id_permiso})";
         $correo_ger = "Estimada Gerencia,\n\n";
         $correo_ger .= "La solicitud de {$solicitante['nombre']} ha sido corregida y reenviada para su revisión.\n";
-        $correo_ger .= "Acceda al sistema: http://localhost/cosanandresito\n\n";
+        $correo_ger .= "Acceda al sistema: " . APP_URL . "\n\n";
         $correo_ger .= "Atentamente,\nSistema de Control de Permisos Coosanandresito";
 
         ConfigCorreo::enviarCorreo($gerente['correo'], $asunto_ger, $correo_ger, $gerente['nombre']);
@@ -253,7 +254,7 @@ class EstadoCorreoManager {
         if (!empty($motivo)) {
             $mensaje .= " Motivo: {$motivo}";
         }
-        $mensaje .= " Acceda: http://localhost/cosanandresito";
+        $mensaje .= " Acceda: " . APP_URL . "";
         $this->crearNotificacion($permiso['id_usuario'], $mensaje);
 
         $asunto = "Control de Permisos - Solicitud Rechazada (Permiso N°{$id_permiso})";
@@ -262,7 +263,7 @@ class EstadoCorreoManager {
         if (!empty($motivo)) {
             $correo .= "Motivo del rechazo: {$motivo}\n\n";
         }
-        $correo .= "Puede revisar los detalles en: http://localhost/cosanandresito\n\n";
+        $correo .= "Puede revisar los detalles en: " . APP_URL . "\n\n";
         $correo .= "Atentamente,\nSistema de Control de Permisos Coosanandresito";
 
         ConfigCorreo::enviarCorreo($permiso['correo_solicitante'], $asunto, $correo, $permiso['nombre_solicitante']);
@@ -283,7 +284,7 @@ class EstadoCorreoManager {
         if (!empty($motivo)) {
             $mensaje_coord .= " Motivo: {$motivo}";
         }
-        $mensaje_coord .= " Acceda: http://localhost/cosanandresito";
+        $mensaje_coord .= " Acceda: " . APP_URL . "";
         $this->crearNotificacion($id_coordinador, $mensaje_coord);
 
         $asunto_coord = "Control de Permisos - Solicitud Rechazada (Permiso N°{$id_permiso})";
@@ -292,7 +293,7 @@ class EstadoCorreoManager {
         if (!empty($motivo)) {
             $correo_coord .= "Motivo del rechazo: {$motivo}\n\n";
         }
-        $correo_coord .= "Revise los detalles en: http://localhost/cosanandresito\n\n";
+        $correo_coord .= "Revise los detalles en: " . APP_URL . "\n\n";
         $correo_coord .= "Atentamente,\nSistema de Control de Permisos Coosanandresito";
 
         ConfigCorreo::enviarCorreo($coordinador['correo'], $asunto_coord, $correo_coord, $coordinador['nombre']);
@@ -304,7 +305,7 @@ class EstadoCorreoManager {
         if (!empty($motivo)) {
             $correo_aux .= "Motivo del rechazo: {$motivo}\n\n";
         }
-        $correo_aux .= "Para más información, contacte con su coordinador o revise el sistema: http://localhost/cosanandresito\n\n";
+        $correo_aux .= "Para más información, contacte con su coordinador o revise el sistema: " . APP_URL . "\n\n";
         $correo_aux .= "Atentamente,\nSistema de Control de Permisos Coosanandresito";
 
         ConfigCorreo::enviarCorreo($permiso['correo_solicitante'], $asunto_aux, $correo_aux, $permiso['nombre_solicitante']);
@@ -312,7 +313,7 @@ class EstadoCorreoManager {
         // Crear notificación para el solicitante también
         $mensaje_aux = "Su solicitud de permiso N°{$id_permiso} ha sido rechazada por la Gerencia.";
         if (!empty($motivo)) $mensaje_aux .= " Motivo: {$motivo}";
-        $mensaje_aux .= " Acceda: http://localhost/cosanandresito";
+        $mensaje_aux .= " Acceda: " . APP_URL . "";
         $this->crearNotificacion($permiso['id_usuario'], $mensaje_aux);
 
         return true;
@@ -329,14 +330,14 @@ class EstadoCorreoManager {
         $tiempo_formateado = $this->formatearTiempoLegible($tiempo_total_ausencia);
 
         // Email al solicitante → "Permiso Finalizado"
-        $mensaje_sol = "Has finalizado tu permiso #{$id_permiso} correctamente. Tiempo total: {$tiempo_formateado}. Accede: http://localhost/cosanandresito";
+        $mensaje_sol = "Has finalizado tu permiso #{$id_permiso} correctamente. Tiempo total: {$tiempo_formateado}. Accede: " . APP_URL . "";
         $this->crearNotificacion($permiso['id_usuario'], $mensaje_sol);
 
         $asunto_sol = "Control de Permisos - Permiso Finalizado (Permiso N°{$id_permiso})";
         $correo_sol = "Estimado(a) {$permiso['nombre_solicitante']},\n\n";
         $correo_sol .= "Has finalizado tu permiso correctamente.\n";
         $correo_sol .= "Tiempo total de ausencia registrado: {$tiempo_formateado}\n\n";
-        $correo_sol .= "Puedes consultar esta información en: http://localhost/cosanandresito\n\n";
+        $correo_sol .= "Puedes consultar esta información en: " . APP_URL . "\n\n";
         $correo_sol .= "Atentamente,\nSistema de Control de Permisos Coosanandresito";
 
         ConfigCorreo::enviarCorreo($permiso['correo_solicitante'], $asunto_sol, $correo_sol, $permiso['nombre_solicitante']);
@@ -353,14 +354,14 @@ class EstadoCorreoManager {
             $gerentes = $stmtG->fetchAll(PDO::FETCH_ASSOC);
 
             foreach ($gerentes as $gerente) {
-                $mensaje_ger = "El usuario {$permiso['nombre_solicitante']} ha finalizado su permiso #{$id_permiso}. Tiempo total: {$tiempo_formateado}. Acceda: http://localhost/cosanandresito";
+                $mensaje_ger = "El usuario {$permiso['nombre_solicitante']} ha finalizado su permiso #{$id_permiso}. Tiempo total: {$tiempo_formateado}. Acceda: " . APP_URL . "";
                 $this->crearNotificacion($gerente['id_usuario'], $mensaje_ger);
 
                 $asunto_ger = "Control de Permisos - Permiso Finalizado (Permiso N°{$id_permiso})";
                 $correo_ger = "Estimado(a) {$gerente['nombre']},\n\n";
                 $correo_ger .= "El usuario {$permiso['nombre_solicitante']} ha finalizado su permiso (#{$id_permiso}).\n";
                 $correo_ger .= "Tiempo total de ausencia registrado: {$tiempo_formateado}\n\n";
-                $correo_ger .= "Revíselo en el sistema: http://localhost/cosanandresito\n\n";
+                $correo_ger .= "Revíselo en el sistema: " . APP_URL . "\n\n";
                 $correo_ger .= "Atentamente,\nSistema de Control de Permisos Coosanandresito";
 
                 ConfigCorreo::enviarCorreo($gerente['correo'], $asunto_ger, $correo_ger, $gerente['nombre']);
@@ -373,14 +374,14 @@ class EstadoCorreoManager {
         // Mantener notificación al revisor si aplica (legacy)
         $revisor = $this->obtenerRevisorPorCargo($permiso['nombre_cargo'], $id_permiso);
         if ($revisor) {
-            $mensaje_rev = "El usuario {$permiso['nombre_solicitante']} ha finalizado su permiso #{$id_permiso}. Tiempo total: {$tiempo_formateado}. Acceda: http://localhost/cosanandresito";
+            $mensaje_rev = "El usuario {$permiso['nombre_solicitante']} ha finalizado su permiso #{$id_permiso}. Tiempo total: {$tiempo_formateado}. Acceda: " . APP_URL . "";
             $this->crearNotificacion($revisor['id_usuario'], $mensaje_rev);
 
             $asunto_rev = "Control de Permisos - Permiso Finalizado (Permiso N°{$id_permiso})";
             $correo_rev = "Estimado(a) {$revisor['nombre']},\n\n";
             $correo_rev .= "El usuario {$permiso['nombre_solicitante']} ha finalizado su permiso.\n";
             $correo_rev .= "Tiempo total de ausencia registrado: {$tiempo_formateado}\n\n";
-            $correo_rev .= "Revíselo en el sistema: http://localhost/cosanandresito\n\n";
+            $correo_rev .= "Revíselo en el sistema: " . APP_URL . "\n\n";
             $correo_rev .= "Atentamente,\nSistema de Control de Permisos Coosanandresito";
 
             ConfigCorreo::enviarCorreo($revisor['correo'], $asunto_rev, $correo_rev, $revisor['nombre']);
@@ -407,17 +408,17 @@ class EstadoCorreoManager {
             }
 
             // Notificar coordinador
-            $mensaje_coord = "Tiene una nueva solicitud de permiso N°{$id_permiso} enviada por {$aux['nombre']}. Acceda: http://localhost/cosanandresito";
+            $mensaje_coord = "Tiene una nueva solicitud de permiso N°{$id_permiso} enviada por {$aux['nombre']}. Acceda: " . APP_URL . "";
             $this->crearNotificacion($id_coordinador, $mensaje_coord);
 
             $asunto_coord = "Control de Permisos - Nueva solicitud (Permiso N°{$id_permiso})";
-            $correo_coord = "Estimado(a) {$coord['nombre']},\n\nHa recibido la solicitud de permiso N°{$id_permiso} enviada por {$aux['nombre']}.\nMotivo: {$permiso['motivo']}\n\nAcceda: http://localhost/cosanandresito\n\nAtentamente,\nSistema de Control de Permisos Coosanandresito";
+            $correo_coord = "Estimado(a) {$coord['nombre']},\n\nHa recibido la solicitud de permiso N°{$id_permiso} enviada por {$aux['nombre']}.\nMotivo: {$permiso['motivo']}\n\nAcceda: " . APP_URL . "\n\nAtentamente,\nSistema de Control de Permisos Coosanandresito";
             ConfigCorreo::enviarCorreo($coord['correo'], $asunto_coord, $correo_coord, $coord['nombre']);
 
             // Notificar solicitante
             $this->crearNotificacion($id_auxiliar, "Su solicitud de permiso N°{$id_permiso} fue enviada al coordinador para revisión.");
             $asunto_aux = "Control de Permisos - Solicitud enviada (Permiso N°{$id_permiso})";
-            $correo_aux = "Estimado(a) {$aux['nombre']},\n\nSu solicitud N°{$id_permiso} fue creada y enviada al coordinador para revisión.\n\nAcceda: http://localhost/cosanandresito\n\nAtentamente,\nSistema de Control de Permisos Coosanandresito";
+            $correo_aux = "Estimado(a) {$aux['nombre']},\n\nSu solicitud N°{$id_permiso} fue creada y enviada al coordinador para revisión.\n\nAcceda: " . APP_URL . "\n\nAtentamente,\nSistema de Control de Permisos Coosanandresito";
             ConfigCorreo::enviarCorreo($aux['correo'], $asunto_aux, $correo_aux, $aux['nombre']);
 
             error_log("auxiliarCreaSolicitudSinPDF: notificados coordinador({$coord['id_usuario']}) y solicitante({$aux['id_usuario']}) para permiso #{$id_permiso}");
@@ -443,17 +444,17 @@ class EstadoCorreoManager {
             }
 
             // Notificar gerente
-            $mensaje_ger = "Tiene una solicitud de permiso N°{$id_permiso} enviada por {$sol['nombre']}. Acceda: http://localhost/cosanandresito";
+            $mensaje_ger = "Tiene una solicitud de permiso N°{$id_permiso} enviada por {$sol['nombre']}. Acceda: " . APP_URL . "";
             $this->crearNotificacion($id_gerente, $mensaje_ger);
 
             $asunto = "Control de Permisos - Solicitud enviada por {$sol['nombre']} (Permiso N°{$id_permiso})";
-            $correo = "Estimado(a) {$ger['nombre']},\n\nEl usuario {$sol['nombre']} ha enviado la solicitud N°{$id_permiso} para su revisión.\n\nAcceda: http://localhost/cosanandresito\n\nAtentamente,\nSistema de Control de Permisos Coosanandresito";
+            $correo = "Estimado(a) {$ger['nombre']},\n\nEl usuario {$sol['nombre']} ha enviado la solicitud N°{$id_permiso} para su revisión.\n\nAcceda: " . APP_URL . "\n\nAtentamente,\nSistema de Control de Permisos Coosanandresito";
             ConfigCorreo::enviarCorreo($ger['correo'], $asunto, $correo, $ger['nombre']);
 
             // Notificar solicitante
             $this->crearNotificacion($id_solicitante, "Su solicitud #{$id_permiso} fue enviada a Gerencia para su revisión.");
             $asunto_sol = "Control de Permisos - Solicitud enviada a Gerencia (Permiso N°{$id_permiso})";
-            $correo_sol = "Estimado(a) {$sol['nombre']},\n\nSu solicitud N°{$id_permiso} fue enviada a Gerencia con el documento adjunto para su revisión.\n\nAcceda: http://localhost/cosanandresito\n\nAtentamente,\nSistema de Control de Permisos Coosanandresito";
+            $correo_sol = "Estimado(a) {$sol['nombre']},\n\nSu solicitud N°{$id_permiso} fue enviada a Gerencia con el documento adjunto para su revisión.\n\nAcceda: " . APP_URL . "\n\nAtentamente,\nSistema de Control de Permisos Coosanandresito";
             ConfigCorreo::enviarCorreo($sol['correo'], $asunto_sol, $correo_sol, $sol['nombre']);
 
             // Enviar PDF confidencial a todo Gerencia (usa ruta pasada o la almacenada en permiso)
@@ -483,16 +484,16 @@ class EstadoCorreoManager {
                 return false;
             }
 
-            $mensaje_ger = "Tiene una solicitud de permiso N°{$id_permiso} enviada por {$sol['nombre']}. Acceda: http://localhost/cosanandresito";
+            $mensaje_ger = "Tiene una solicitud de permiso N°{$id_permiso} enviada por {$sol['nombre']}. Acceda: " . APP_URL . "";
             $this->crearNotificacion($id_gerente, $mensaje_ger);
 
             $asunto = "Control de Permisos - Solicitud enviada por {$sol['nombre']} (Permiso N°{$id_permiso})";
-            $correo = "Estimado(a) {$ger['nombre']},\n\nEl usuario {$sol['nombre']} ha enviado la solicitud N°{$id_permiso} para su revisión.\n\nAcceda: http://localhost/cosanandresito\n\nAtentamente,\nSistema de Control de Permisos Coosanandresito";
+            $correo = "Estimado(a) {$ger['nombre']},\n\nEl usuario {$sol['nombre']} ha enviado la solicitud N°{$id_permiso} para su revisión.\n\nAcceda: " . APP_URL . "\n\nAtentamente,\nSistema de Control de Permisos Coosanandresito";
             ConfigCorreo::enviarCorreo($ger['correo'], $asunto, $correo, $ger['nombre']);
 
             $this->crearNotificacion($id_solicitante, "Su solicitud #{$id_permiso} fue enviada a Gerencia para su revisión.");
             $asunto_sol = "Control de Permisos - Solicitud enviada a Gerencia (Permiso N°{$id_permiso})";
-            $correo_sol = "Estimado(a) {$sol['nombre']},\n\nSu solicitud N°{$id_permiso} fue enviada a Gerencia para revisión.\n\nAcceda: http://localhost/cosanandresito\n\nAtentamente,\nSistema de Control de Permisos Coosanandresito";
+            $correo_sol = "Estimado(a) {$sol['nombre']},\n\nSu solicitud N°{$id_permiso} fue enviada a Gerencia para revisión.\n\nAcceda: " . APP_URL . "\n\nAtentamente,\nSistema de Control de Permisos Coosanandresito";
             ConfigCorreo::enviarCorreo($sol['correo'], $asunto_sol, $correo_sol, $sol['nombre']);
 
             return true;
@@ -525,7 +526,7 @@ class EstadoCorreoManager {
                 return false;
             }
 
-            $mensaje = "El auxiliar {$aux['nombre']} ha reenviado corregida la solicitud N°{$id_permiso}. Acceda: http://localhost/cosanandresito";
+            $mensaje = "El auxiliar {$aux['nombre']} ha reenviado corregida la solicitud N°{$id_permiso}. Acceda: " . APP_URL . "";
             $this->crearNotificacion($id_coordinador, $mensaje);
             ConfigCorreo::enviarCorreo($coord['correo'], "Control de Permisos - Solicitud reenviada corregida (N°{$id_permiso})", $mensaje, $coord['nombre']);
 
@@ -552,7 +553,7 @@ class EstadoCorreoManager {
                 return false;
             }
 
-            $mensaje = "Su solicitud de permiso N°{$id_permiso} ha sido devuelta para corrección por su coordinador. Acceda: http://localhost/cosanandresito";
+            $mensaje = "Su solicitud de permiso N°{$id_permiso} ha sido devuelta para corrección por su coordinador. Acceda: " . APP_URL . "";
             $this->crearNotificacion($id_auxiliar, $mensaje);
             ConfigCorreo::enviarCorreo($aux['correo'], "Control de Permisos - Solicitud devuelta para corrección (N°{$id_permiso})", $mensaje, $aux['nombre']);
 
@@ -571,11 +572,11 @@ class EstadoCorreoManager {
             $permiso = $this->obtenerPermiso($id_permiso);
             if (!$permiso) return false;
 
-            $mensaje = "Su solicitud de permiso #{$id_permiso} ha sido aprobada por la Gerencia. Acceda: http://localhost/cosanandresito";
+            $mensaje = "Su solicitud de permiso #{$id_permiso} ha sido aprobada por la Gerencia. Acceda: " . APP_URL . "";
             $this->crearNotificacion($permiso['id_usuario'], $mensaje);
 
             $asunto = "Control de Permisos - Solicitud Aprobada (Permiso N°{$id_permiso})";
-            $correo = "Estimado(a) {$permiso['nombre_solicitante']},\n\nSu solicitud de permiso ha sido aprobada por la Gerencia.\n\nAcceda: http://localhost/cosanandresito\n\nAtentamente,\nSistema de Control de Permisos Coosanandresito";
+            $correo = "Estimado(a) {$permiso['nombre_solicitante']},\n\nSu solicitud de permiso ha sido aprobada por la Gerencia.\n\nAcceda: " . APP_URL . "\n\nAtentamente,\nSistema de Control de Permisos Coosanandresito";
             ConfigCorreo::enviarCorreo($permiso['correo_solicitante'], $asunto, $correo, $permiso['nombre_solicitante']);
 
             // Notificar revisor si aplica
@@ -600,11 +601,11 @@ class EstadoCorreoManager {
             $permiso = $this->obtenerPermiso($id_permiso);
             if (!$permiso) return false;
 
-            $mensaje = "Su solicitud de permiso #{$id_permiso} ha sido cancelada por la Gerencia. Acceda: http://localhost/cosanandresito";
+            $mensaje = "Su solicitud de permiso #{$id_permiso} ha sido cancelada por la Gerencia. Acceda: " . APP_URL . "";
             $this->crearNotificacion($permiso['id_usuario'], $mensaje);
 
             $asunto = "Control de Permisos - Solicitud Cancelada (Permiso N°{$id_permiso})";
-            $correo = "Estimado(a) {$permiso['nombre_solicitante']},\n\nSu solicitud de permiso ha sido cancelada por la Gerencia.\n\nAcceda: http://localhost/cosanandresito\n\nAtentamente,\nSistema de Control de Permisos Coosanandresito";
+            $correo = "Estimado(a) {$permiso['nombre_solicitante']},\n\nSu solicitud de permiso ha sido cancelada por la Gerencia.\n\nAcceda: " . APP_URL . "\n\nAtentamente,\nSistema de Control de Permisos Coosanandresito";
             ConfigCorreo::enviarCorreo($permiso['correo_solicitante'], $asunto, $correo, $permiso['nombre_solicitante']);
 
             // Notificar Gerencia (opcional, aquí se notifica a todos los gerentes)

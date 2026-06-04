@@ -1,50 +1,41 @@
 <?php
-require_once 'vendor/autoload.php';
+require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/config.php';
+
 use PHPMailer\PHPMailer\PHPMailer;
 use PHPMailer\PHPMailer\SMTP;
 use PHPMailer\PHPMailer\Exception;
 
 class ConfigCorreo {
-    
-    // Configuración SMTP mejorada
-    private static $config = [
-        'host' => 'smtp.gmail.com',
-        'port' => 587,
-        'username' => 'vargaszunigafabianstiven@gmail.com',  // ⚠️ CAMBIAR por tu email real
-        'password' => 'krwv nzxo hloe cffw',     // ⚠️ CAMBIAR por tu app password
-        'encryption' => PHPMailer::ENCRYPTION_STARTTLS,
-        'from_email' => 'vargaszunigafabianstiven@gmail.com', // ⚠️ CAMBIAR por tu email real
-        'from_name' => 'Sistema Coosanandresito'
-    ];
-    
+
     public static function configurarSMTP() {
         try {
             $mail = new PHPMailer(true);
-            
-            // Configuración del servidor
+
             $mail->isSMTP();
-            $mail->Host = self::$config['host'];
-            $mail->SMTPAuth = true;
-            $mail->Username = self::$config['username'];
-            $mail->Password = self::$config['password'];
-            $mail->SMTPSecure = self::$config['encryption'];
-            $mail->Port = self::$config['port'];
-            
-            // Configuración de depuración (temporal para debugging)
-            $mail->SMTPDebug = SMTP::DEBUG_SERVER; // ⚠️ Cambiar a DEBUG_OFF en producción
-            $mail->Debugoutput = function($str, $level) {
+            $mail->Host       = SMTP_HOST;
+            $mail->SMTPAuth   = true;
+            $mail->Username   = SMTP_USER;
+            $mail->Password   = SMTP_PASS;
+            $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->Port       = SMTP_PORT;
+
+            // Debug: OFF en producción, SERVER solo en desarrollo
+            $mail->SMTPDebug  = (defined('APP_ENV') && APP_ENV === 'desarrollo')
+                                    ? SMTP::DEBUG_SERVER
+                                    : SMTP::DEBUG_OFF;
+
+            $mail->Debugoutput = function ($str, $level) {
                 error_log("PHPMailer DEBUG: $str");
             };
-            
-            // Configuración del remitente
-            $mail->setFrom(self::$config['from_email'], self::$config['from_name']);
+
+            $mail->setFrom(SMTP_FROM, SMTP_NAME);
             $mail->CharSet = 'UTF-8';
-            
-            error_log("✅ PHPMailer configurado correctamente");
+
             return $mail;
-            
+
         } catch (Exception $e) {
-            error_log("❌ Error configurando PHPMailer: " . $e->getMessage());
+            error_log("Error configurando PHPMailer: " . $e->getMessage());
             return false;
         }
     }

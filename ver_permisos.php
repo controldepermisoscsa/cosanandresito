@@ -29,24 +29,22 @@ if (!in_array($filtro, $estadosValidos)) {
 // Consultar permisos con formato de tiempo actualizado
 try {
     $stmt = $pdo->prepare("
-        SELECT p.*, 
-               DATE_FORMAT(p.fecha_salida, '%d/%m/%Y') as fecha_salida_formato,
-               TIME_FORMAT(p.hora_salida, '%H:%i') as hora_salida_formato,
-               DATE_FORMAT(p.fecha_regreso_aprox, '%d/%m/%Y') as fecha_regreso_aprox_formato,
-               TIME_FORMAT(p.hora_regreso_aprox, '%H:%i') as hora_regreso_aprox_formato,
-               DATE_FORMAT(p.fecha_regreso_real, '%d/%m/%Y') as fecha_regreso_real_formato,
-               TIME_FORMAT(p.hora_regreso_real, '%H:%i') as hora_regreso_real_formato,
-               TIME_FORMAT(p.tiempo_total_ausencia, '%H:%i:%s') as tiempo_total_formateado,
-               CASE 
+        SELECT p.*,
+               TO_CHAR(p.fecha_salida, 'DD/MM/YYYY') AS fecha_salida_formato,
+               TO_CHAR(p.hora_salida, 'HH24:MI') AS hora_salida_formato,
+               TO_CHAR(p.fecha_regreso_aprox, 'DD/MM/YYYY') AS fecha_regreso_aprox_formato,
+               TO_CHAR(p.hora_regreso_aprox, 'HH24:MI') AS hora_regreso_aprox_formato,
+               TO_CHAR(p.fecha_regreso_real, 'DD/MM/YYYY') AS fecha_regreso_real_formato,
+               TO_CHAR(p.hora_regreso_real, 'HH24:MI') AS hora_regreso_real_formato,
+               TO_CHAR(p.tiempo_total_ausencia, 'HH24:MI:SS') AS tiempo_total_formateado,
+               CASE
                    WHEN p.tiempo_total_ausencia IS NOT NULL THEN
-                       CONCAT(
-                           HOUR(p.tiempo_total_ausencia), ' hrs, ',
-                           MINUTE(p.tiempo_total_ausencia), ' min, ',
-                           SECOND(p.tiempo_total_ausencia), ' seg'
-                       )
+                       EXTRACT(HOUR FROM p.tiempo_total_ausencia)::int || ' hrs, ' ||
+                       EXTRACT(MINUTE FROM p.tiempo_total_ausencia)::int || ' min, ' ||
+                       EXTRACT(SECOND FROM p.tiempo_total_ausencia)::int || ' seg'
                    ELSE NULL
-               END as tiempo_total_legible
-        FROM permisos p 
+               END AS tiempo_total_legible
+        FROM permisos p
         WHERE p.id_usuario = :id_usuario
         ORDER BY p.id_permiso DESC
     ");

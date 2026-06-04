@@ -16,7 +16,7 @@ try {
 		if (!$id_rec) throw new Exception('ID inválido');
 
 		if ($accion === 'aprobar') {
-			$stmt = $pdo->prepare("UPDATE recuperacion_tiempo SET estado='aprobado', aprobado_por = ?, fecha_aprobacion = CURDATE(), hora_aprobacion = CURTIME() WHERE id_recuperacion = ?");
+			$stmt = $pdo->prepare("UPDATE recuperacion_tiempo SET estado='aprobado', aprobado_por = ?, fecha_aprobacion = CURRENT_DATE, hora_aprobacion = CURRENT_TIME WHERE id_recuperacion = ?");
 			$stmt->execute([$_SESSION['usuario_id'], $id_rec]);
 			$mensaje = 'Solicitud aprobada';
 			// Notificar al usuario

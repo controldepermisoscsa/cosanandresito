@@ -38,7 +38,7 @@ try {
 	$upd->execute([$timeRecovered, $final->format('Y-m-d'), $final->format('H:i:s'), $id_rec]);
 
 	// Descontar de usuarios.tiempo_pendiente_recuperar
-	$stmtUser = $pdo->prepare("SELECT TIME_TO_SEC(tiempo_pendiente_recuperar) as secs FROM usuarios WHERE id_usuario = ?");
+	$stmtUser = $pdo->prepare("SELECT EXTRACT(EPOCH FROM tiempo_pendiente_recuperar)::int AS secs FROM usuarios WHERE id_usuario = ?");
 	$stmtUser->execute([$r['id_usuario']]);
 	$userSecs = intval($stmtUser->fetchColumn() ?? 0);
 	$newSecs = max(0, $userSecs - $recoveredSecs);

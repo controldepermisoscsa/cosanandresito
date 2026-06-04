@@ -24,11 +24,11 @@ $stmt->execute([$id_usuario]);
 $permisos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Tiempo pendiente (primero usuarios.tiempo_pendiente_recuperar, fallback a sumatoria de recuperaciones pendientes/aprobadas)
-$stmt = $pdo->prepare("SELECT TIME_TO_SEC(tiempo_pendiente_recuperar) as secs FROM usuarios WHERE id_usuario = ?");
+$stmt = $pdo->prepare("SELECT EXTRACT(EPOCH FROM tiempo_pendiente_recuperar)::int AS secs FROM usuarios WHERE id_usuario = ?");
 $stmt->execute([$id_usuario]);
 $pendingSecs = intval($stmt->fetchColumn() ?? 0);
 if ($pendingSecs <= 0) {
-	$stmt = $pdo->prepare("SELECT COALESCE(SUM(TIME_TO_SEC(tiempo_a_recuperar)),0) FROM recuperacion_tiempo WHERE id_usuario = ? AND estado IN ('pendiente','aprobado')");
+	$stmt = $pdo->prepare("SELECT COALESCE(SUM(EXTRACT(EPOCH FROM tiempo_a_recuperar)::int), 0) FROM recuperacion_tiempo WHERE id_usuario = ? AND estado IN ('pendiente','aprobado')");
 	$stmt->execute([$id_usuario]);
 	$pendingSecs = intval($stmt->fetchColumn() ?? 0);
 }

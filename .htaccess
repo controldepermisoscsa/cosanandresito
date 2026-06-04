@@ -1,0 +1,20 @@
+# ================================================================
+# Protección de archivos sensibles
+# ================================================================
+
+# Bloquear acceso directo a config.php
+<Files "config.php">
+    Require all denied
+</Files>
+
+# Bloquear archivos .sql y .log
+<FilesMatch "\.(sql|log)$">
+    Require all denied
+</FilesMatch>
+
+# Bloquear acceso a la carpeta vendor
+RewriteEngine On
+RewriteRule ^vendor(/.*)?$ - [F,L]
+
+# Evitar listado de archivos en carpetas
+Options -Indexes
