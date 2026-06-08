@@ -19,15 +19,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $usuario = $_POST['usuario'];
     $password = $_POST['password'];
 
-    $stmt = $pdo->prepare("SELECT * FROM usuarios WHERE usuario = :usuario AND password = :password");
-    $stmt->execute(['usuario' => $usuario, 'password' => $password]);
+    $stmt = $pdo->prepare("
+        SELECT u.id_usuario, u.nombre, u.usuario, u.password, c.nombre_cargo AS cargo
+        FROM usuarios u
+        JOIN cargo c ON u.id_cargo = c.id_cargo
+        WHERE u.usuario = ?
+    ");
+    $stmt->execute([$usuario]);
     $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($user) {
+    if ($user && password_verify($password, $user['password'])) {
         $_SESSION['usuario_id'] = $user['id_usuario'];
         $_SESSION['nombre'] = $user['nombre'];
-        $_SESSION['cargo'] = strtolower($user['cargo']);
-        header('Location: auxiliar_inicio.php');
+        $_SESSION['id_cargo'] = $user['id_cargo'];
+
+        // Mapear cargo por id_cargo (más confiable que string matching)
+        $cargo_map = [
+            1 => 'administrador',
+            2 => 'administrativo',
+            3 => 'auxiliar',
+            4 => 'coordinador',
+            5 => 'gerente'  // ID 5 = Gerente (aunque en la BD se llame "Gerencia")
+        ];
+
+        $cargo_normalizado = $cargo_map[$user['id_cargo']] ?? 'auxiliar';
+        $_SESSION['cargo'] = $cargo_normalizado;
+
+        // Redirigir según el cargo
+        switch($cargo_normalizado) {
+            case 'administrador':
+                header('Location: admin_inicio.php');
+                break;
+            case 'gerente':
+                header('Location: gerente_inicio.php');
+                break;
+            case 'coordinador':
+                header('Location: coordinador_inicio.php');
+                break;
+            case 'auxiliar':
+                header('Location: auxiliar_inicio.php');
+                break;
+            case 'administrativo':
+                header('Location: administrativo_inicio.php');
+                break;
+            default:
+                header('Location: auxiliar_inicio.php');
+        }
         exit();
     } else {
         header('Location: login.php?mensaje=Credenciales incorrectas.');

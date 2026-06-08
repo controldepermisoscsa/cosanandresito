@@ -10,7 +10,7 @@ if (!isset($_SESSION['usuario_id']) || !isset($_SESSION['nombre'])) {
 
 // Verificar si el usuario tiene el cargo de gerente
 $cargo = strtolower($_SESSION['cargo'] ?? '');
-if ($cargo !== 'gerente' && $cargo !== 'gerencia') {
+if ($cargo !== 'gerente') {
     header('Location: login.php?mensaje=No tienes permiso para acceder a esta página.');
     exit();
 }
@@ -23,12 +23,12 @@ $tiposPermisos = $stmtTipos->fetchAll(PDO::FETCH_COLUMN);
 $stmtCargos = $pdo->query("SELECT DISTINCT nombre_cargo FROM cargo WHERE LOWER(nombre_cargo) NOT IN ('gerencia', 'gerente') ORDER BY nombre_cargo");
 $cargos = $stmtCargos->fetchAll(PDO::FETCH_COLUMN);
 
-// Obtener áreas
-$stmtAreas = $pdo->query("SELECT DISTINCT area FROM usuarios WHERE area IS NOT NULL AND area != '' ORDER BY area");
+// Obtener áreas (castear enum a texto para evitar error en PostgreSQL al comparar con cadena vacía)
+$stmtAreas = $pdo->query("SELECT DISTINCT CAST(area AS TEXT) AS area FROM usuarios WHERE area IS NOT NULL AND CAST(area AS TEXT) <> '' ORDER BY area");
 $areas = $stmtAreas->fetchAll(PDO::FETCH_COLUMN);
 
 // Obtener años disponibles para filtros
-$stmtAnios = $pdo->query("SELECT DISTINCT YEAR(fecha_salida) AS anio FROM permisos WHERE fecha_salida IS NOT NULL ORDER BY anio DESC");
+$stmtAnios = $pdo->query("SELECT DISTINCT EXTRACT(YEAR FROM fecha_salida)::INTEGER AS anio FROM permisos WHERE fecha_salida IS NOT NULL ORDER BY anio DESC");
 $anios = $stmtAnios->fetchAll(PDO::FETCH_COLUMN);
 if (empty($anios)) {
     $anios = [date('Y')];
@@ -74,7 +74,7 @@ if (!empty($mesInicio) && !empty($mesFin) && !empty($anioInicio) && !empty($anio
             p.tipo_permiso AS tipo,
             u.nombre AS nombre,
             c.nombre_cargo AS cargo,
-            COALESCE(u.area, 'Sin área') AS area,
+            COALESCE(CAST(u.area AS TEXT), 'Sin área') AS area,
             COALESCE(p.tiempo_total_ausencia, '00:00:00') AS total_horas,
             p.motivo
         FROM permisos p

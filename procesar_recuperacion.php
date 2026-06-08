@@ -26,7 +26,7 @@ try {
 	if (!$id_permiso) {
 		throw new Exception('Debe seleccionar un permiso que genere recuperación.');
 	}
-	$stmtChk = $pdo->prepare("SELECT id_permiso FROM permisos WHERE id_permiso = ? AND id_usuario = ? AND tipo_pago = 'no_remunerado' AND estado = 'finalizado' AND genera_recuperacion = 1 LIMIT 1");
+	$stmtChk = $pdo->prepare("SELECT id_permiso FROM permisos WHERE id_permiso = ? AND id_usuario = ? AND tipo_pago = 'no_remunerado' AND estado = 'finalizado' AND genera_recuperacion = TRUE LIMIT 1");
 	$stmtChk->execute([$id_permiso, $id_usuario]);
 	if (!$stmtChk->fetch()) throw new Exception('Permiso inválido o no autorizado para generar recuperación.');
 

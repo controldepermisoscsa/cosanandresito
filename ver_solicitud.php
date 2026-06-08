@@ -11,7 +11,7 @@ if (!isset($_SESSION['usuario_id']) || !isset($_SESSION['nombre'])) {
 $cargo = strtolower($_SESSION['cargo'] ?? '');
 
 // Determinar si es vista de gerente o usuario normal
-$esGerente = ($cargo === 'gerente' || $cargo === 'gerencia');
+$esGerente = ($cargo === 'gerente');
 $esCoordinadorAdmin = in_array($cargo, ['coordinador', 'administrador']);
 
 // Determinar el archivo del panel de regreso según el cargo

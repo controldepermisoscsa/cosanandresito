@@ -29,7 +29,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['usuario_id'] = $usuario_data['id_usuario'];
                 $_SESSION['nombre'] = $usuario_data['nombre'];
                 $_SESSION['id_cargo'] = $usuario_data['id_cargo'];
-                $_SESSION['cargo'] = $usuario_data['nombre_cargo'];
+
+                $cargo_map = [
+                    1 => 'administrador',
+                    2 => 'administrativo',
+                    3 => 'auxiliar',
+                    4 => 'coordinador',
+                    5 => 'gerente',
+                ];
+                $_SESSION['cargo'] = $cargo_map[$usuario_data['id_cargo']] ?? 'auxiliar';
 
                 // Redirigir según el id_cargo (más confiable que el nombre)
                 switch ($usuario_data['id_cargo']) {

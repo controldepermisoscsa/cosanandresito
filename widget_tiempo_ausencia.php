@@ -18,15 +18,15 @@ try {
     
     // CORREGIDO: Solo buscar permisos APROBADOS que estén activos
     $stmt = $pdo->prepare("
-        SELECT p.*, 
-               CONCAT(p.fecha_salida, ' ', p.hora_salida) as inicio_ausencia,
-               CONCAT(p.fecha_regreso_aprox, ' ', p.hora_regreso_aprox) as fin_ausencia_aprox
+        SELECT p.*,
+               p.fecha_salida || ' ' || p.hora_salida as inicio_ausencia,
+               p.fecha_regreso_aprox || ' ' || p.hora_regreso_aprox as fin_ausencia_aprox
         FROM permisos p
-        WHERE p.id_usuario = ? 
+        WHERE p.id_usuario = ?
         AND p.estado = 'aprobado'
-        AND p.fecha_regreso_real IS NULL 
+        AND p.fecha_regreso_real IS NULL
         AND p.hora_regreso_real IS NULL
-        AND CONCAT(p.fecha_salida, ' ', p.hora_salida) <= NOW()
+        AND (p.fecha_salida || ' ' || p.hora_salida)::timestamp <= NOW()
         ORDER BY p.fecha_salida DESC
         LIMIT 1
     ");

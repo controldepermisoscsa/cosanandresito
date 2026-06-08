@@ -10,7 +10,7 @@ if (!isset($_SESSION['usuario_id']) || !isset($_SESSION['nombre'])) {
 
 // Verificar si el usuario tiene el cargo de gerente
 $cargo = strtolower($_SESSION['cargo'] ?? '');
-if ($cargo !== 'gerente' && $cargo !== 'gerencia') { // Asegurar compatibilidad con ambos nombres
+if ($cargo !== 'gerente') {
     header('Location: login.php?mensaje=No tienes permiso para acceder a esta página.');
     exit();
 }
@@ -33,7 +33,7 @@ if ($filtro === 'asignados') {
         FROM permisos p
         JOIN usuarios u ON p.id_usuario = u.id_usuario
         JOIN cargo c ON u.id_cargo = c.id_cargo
-        WHERE (p.asignado_a = 'gerente' OR p.asignado_a = 'gerencia') 
+        WHERE (p.asignado_a = 'gerente') 
         AND (p.id_asignado = ? OR p.id_asignado IS NULL)
         ORDER BY p.fecha_salida DESC
     ");
@@ -48,7 +48,7 @@ if ($filtro === 'asignados') {
         JOIN cargo c ON u.id_cargo = c.id_cargo
         WHERE (
             -- Permisos que están asignados al gerente actualmente
-            ((p.asignado_a = 'gerente' OR p.asignado_a = 'gerencia') AND (p.id_asignado = ? OR p.id_asignado IS NULL))
+            ((p.asignado_a = 'gerente') AND (p.id_asignado = ? OR p.id_asignado IS NULL))
             OR 
             -- Permisos que el gerente ya procesó (aprobados)
             p.estado = 'aprobado'
@@ -60,7 +60,7 @@ if ($filtro === 'asignados') {
             (p.estado = 'rechazado' AND p.asignado_a IN ('coordinador', 'auxiliar'))
             OR
             -- Permisos reenviados que van hacia el gerente
-            (p.estado = 'reenviado' AND (p.asignado_a = 'gerente' OR p.asignado_a = 'gerencia'))
+            (p.estado = 'reenviado' AND (p.asignado_a = 'gerente'))
             OR
             -- Permisos cancelados por el gerente
             p.estado = 'cancelado'
@@ -99,7 +99,7 @@ if ($filtro === 'asignados') {
         FROM permisos p
         JOIN usuarios u ON p.id_usuario = u.id_usuario
         JOIN cargo c ON u.id_cargo = c.id_cargo
-        WHERE LOWER(p.estado) = 'cancelado'
+        WHERE p.estado = 'cancelado'
         ORDER BY p.fecha_salida DESC
     ");
     $stmtPermisos->execute();
