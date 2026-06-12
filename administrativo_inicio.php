@@ -8,22 +8,11 @@ if (!isset($_SESSION['usuario_id'])) {
     exit();
 }
 
-// DEBUG: Ver exactamente qué valores tiene la sesión
-error_log("DEBUG administrativo_inicio.php - Sesión: " . json_encode([
-    'usuario_id' => $_SESSION['usuario_id'] ?? 'NO_SET',
-    'cargo' => $_SESSION['cargo'] ?? 'NO_SET', 
-    'id_cargo' => $_SESSION['id_cargo'] ?? 'NO_SET',
-    'nombre' => $_SESSION['nombre'] ?? 'NO_SET'
-]));
-
-// Verificar si el usuario tiene el rol de Administrativo - MEJORAR VALIDACIÓN
-$cargo_usuario = strtolower(trim($_SESSION['cargo'] ?? ''));
+// Verificar si el usuario tiene el rol de Administrativo
 $id_cargo_usuario = $_SESSION['id_cargo'] ?? 0;
 
-// Validar por ID de cargo (más confiable) o por nombre
-if ($id_cargo_usuario != 2 && !in_array($cargo_usuario, ['administrativo', 'admin'])) {
-    error_log("DEBUG: Acceso denegado - cargo: '$cargo_usuario', id_cargo: '$id_cargo_usuario'");
-    header('Location: login.php?mensaje=No tienes permiso para acceder a esta página. Cargo: ' . $cargo_usuario);
+if ($id_cargo_usuario != 2) {
+    header('Location: login.php');
     exit();
 }
 

@@ -9,6 +9,7 @@ $mensaje_exito = $_GET['registro_exitoso'] ?? '';
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Registro de Usuario</title>
+  <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -125,10 +126,6 @@ $mensaje_exito = $_GET['registro_exitoso'] ?? '';
         </div>
     <?php endif; ?>
 
-    <!-- Mostrar mensaje de éxito si existe -->
-    <?php if (!empty($mensaje_exito)): ?>
-      <div class="mensaje-exito"><?= htmlspecialchars($mensaje_exito) ?></div>
-    <?php endif; ?>
 
     <form id="formRegistro" action="procesar_registro.php" method="POST" novalidate>
       <input type="text" name="nombre" placeholder="Nombre completo" required>
@@ -375,6 +372,22 @@ $mensaje_exito = $_GET['registro_exitoso'] ?? '';
       campo.textContent = mensaje;
       campo.style.display = "block";
     }
+
+    // Mostrar SweetAlert de éxito y redirigir al login
+    <?php if (!empty($mensaje_exito)): ?>
+    Swal.fire({
+      icon: 'success',
+      title: '¡Registro exitoso!',
+      text: 'Tu cuenta ha sido creada correctamente.',
+      timer: 2000,
+      timerProgressBar: true,
+      showConfirmButton: false,
+      allowOutsideClick: false,
+      allowEscapeKey: false
+    }).then(() => {
+      window.location.href = 'login.php';
+    });
+    <?php endif; ?>
 
     // Mostrar/ocultar contraseña
     document.querySelectorAll(".toggle-password").forEach(toggle => {

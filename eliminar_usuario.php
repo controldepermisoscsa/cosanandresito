@@ -3,7 +3,7 @@ session_start();
 require 'conexion.php';
 
 // Verificar si el usuario tiene el cargo de Administrador
-if (!isset($_SESSION['usuario_id']) || $_SESSION['cargo'] !== 'Administrador') {
+if (!isset($_SESSION['usuario_id']) || strtolower($_SESSION['cargo'] ?? '') !== 'administrador') {
     header('Location: login.php');
     exit();
 }

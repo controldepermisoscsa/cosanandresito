@@ -1,27 +1,15 @@
 <?php
 session_start();
-
-// Configuración de conexión a la base de datos
-$host = 'localhost';
-$db   = 'control_permisos_pruebas';
-$user = 'root';
-$pass = '';
-$charset = 'utf8mb4';
-
-$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
-$options = [
-    PDO::ATTR_ERRMODE            => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-];
-
-try {
-    $pdo = new PDO($dsn, $user, $pass, $options);
-} catch (PDOException $e) {
-    die('Error de conexión: ' . $e->getMessage());
-}
+require_once __DIR__ . '/conexion.php';
 
 $mensaje_estado = '';
 $tipo_mensaje = '';
+
+// Mensaje cuando el código expiró
+if (isset($_GET['error']) && $_GET['error'] === 'codigo_expirado') {
+    $mensaje_estado = "El código de verificación ha expirado. Por favor, solicita uno nuevo.";
+    $tipo_mensaje = 'error';
+}
 
 // Si el formulario fue enviado
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -192,9 +180,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         <a href="login.php">← Volver al inicio de sesión</a>
     </div>
     
-    <div class="debug-link">
-        <a href="probar_correo.php" target="_blank">🔧 Probar configuración de correo</a>
-    </div>
   </div>
 </body>
 </html>

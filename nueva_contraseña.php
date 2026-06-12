@@ -1,32 +1,15 @@
 <?php
 session_start();
 
-// Si no hay correo guardado en sesión, volver al login
-if (!isset($_SESSION['correo_recuperacion'])) {
+// Verificar que el usuario haya completado el flujo de verificación de código
+if (!isset($_SESSION['correo_recuperacion']) || !isset($_SESSION['codigo_verificado'])) {
     header("Location: login.php");
     exit;
 }
 
 $correo = $_SESSION['correo_recuperacion'];
 
-// Conexión DB
-$host = 'localhost';
-$db = 'control_permisos_pruebas';
-$user = 'root';
-$pass = '';
-$charset = 'utf8mb4';
-
-$dsn = "mysql:host=$host;dbname=$db;charset=$charset";
-$options = [
-    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
-];
-
-try {
-    $pdo = new PDO($dsn, $user, $pass, $options);
-} catch (PDOException $e) {
-    die('Error de conexión: ' . $e->getMessage());
-}
+require_once __DIR__ . '/conexion.php';
 
 $mensaje = "";
 
@@ -55,8 +38,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("UPDATE usuarios SET password = ?, codigo_recuperacion = NULL, fecha_codigo = NULL WHERE correo = ?");
             $stmt->execute([$passHash, $correo]);
 
-            // Borrar sesión y redirigir
-            unset($_SESSION['correo_recuperacion']);
+            // Borrar sesión de recuperación y redirigir
+            unset($_SESSION['correo_recuperacion'], $_SESSION['codigo_verificado']);
             header("Location: login.php?msg=contraseña_actualizada");
             exit;
         }

@@ -387,11 +387,6 @@ $puedeEditarEncargado = $esGerente && in_array($cargoSolicitante, ['administrado
             <p><span class="label">📝 Tipo:</span> <?= htmlspecialchars($permiso['tipo_permiso']) ?></p>
             <p><span class="label">📊 Estado:</span> <strong><?= ucfirst(htmlspecialchars($permiso['estado'])) ?></strong></p>
             <p><span class="label">👨‍💼 Encargado en ausencia:</span> <?= htmlspecialchars($permiso['encargado_ausencia'] ?? 'No especificado') ?></p>
-            <p><span class="label">⏰ Fecha recuperación:</span> 
-                <?= !empty($permiso['fecha_recuperacion']) ? 
-                    date('d/m/Y g:i A', strtotime($permiso['fecha_recuperacion'])) : 
-                    'No programada' ?>
-            </p>
         </div>
 
         <div class="info-section">
@@ -400,8 +395,7 @@ $puedeEditarEncargado = $esGerente && in_array($cargoSolicitante, ['administrado
             <p><span class="label">🕐 Hora Salida:</span> <span class="hora-formato"><?= formatearHoraAMPM($permiso['hora_salida']) ?></span></p>
             <p><span class="label">📅 Fecha Aprox. Regreso:</span> <?= date('d/m/Y', strtotime($permiso['fecha_regreso_aprox'])) ?></p>
             <p><span class="label">🕐 Hora Aprox. Regreso:</span> <span class="hora-formato"><?= formatearHoraAMPM($permiso['hora_regreso_aprox']) ?></span></p>
-            
-
+        </div>
 
         <!-- Mostrar tiempo de ausencia -->
         <div class="tiempo-ausencia">

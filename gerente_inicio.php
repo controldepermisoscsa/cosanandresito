@@ -10,7 +10,7 @@ if (!isset($_SESSION['usuario_id']) || !isset($_SESSION['nombre'])) {
 
 // Verificar si el usuario tiene el cargo de gerente
 $cargo = strtolower($_SESSION['cargo'] ?? '');
-if ($cargo !== 'gerente') {
+if (!in_array($cargo, ['gerente', 'gerencia'])) {
     header('Location: login.php?mensaje=No tienes permiso para acceder a esta página.');
     exit();
 }

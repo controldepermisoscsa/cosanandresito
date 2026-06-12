@@ -7,6 +7,13 @@ if (!isset($_SESSION['codigo_recuperacion']) || !isset($_SESSION['correo_recuper
     exit;
 }
 
+// Verificar que el código no haya expirado (15 minutos)
+if (!isset($_SESSION['tiempo_codigo']) || (time() - $_SESSION['tiempo_codigo']) > 900) {
+    unset($_SESSION['codigo_recuperacion'], $_SESSION['correo_recuperacion'], $_SESSION['tiempo_codigo']);
+    header("Location: enviar_codigo.php?error=codigo_expirado");
+    exit;
+}
+
 $codigo_enviado = $_SESSION['codigo_recuperacion'];
 $correo = $_SESSION['correo_recuperacion'];
 $error = "";
@@ -16,7 +23,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $codigo_ingresado = trim($_POST['codigo']);
 
     if ($codigo_ingresado == $codigo_enviado) {
-        // Código correcto → Pasar a la pantalla de nueva contraseña
+        // Marcar que el código fue verificado y limpiar el código de sesión
+        $_SESSION['codigo_verificado'] = true;
+        unset($_SESSION['codigo_recuperacion'], $_SESSION['tiempo_codigo']);
         header("Location: nueva_contraseña.php");
         exit;
     } else {

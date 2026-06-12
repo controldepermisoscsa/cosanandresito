@@ -379,25 +379,6 @@ $permisos = $stmt->fetchAll(PDO::FETCH_ASSOC);
       <li><strong>Cerrar Sesión:</strong> Sal de tu cuenta de forma segura.</li>
     </ul>
     <a href="ver_permisos.php" class="btn">Ver Mis Permisos</a>
-    
-    <!-- DEBUG: Mostrar permisos encontrados -->
-    <?php if (count($permisos) > 0): ?>
-      <div style="margin-top: 20px; padding: 15px; background: #e8f4fd; border-radius: 8px;">
-        <h3>🔍 Debug - Permisos Encontrados (<?= count($permisos) ?>)</h3>
-        <?php foreach ($permisos as $permiso): ?>
-          <div style="background: white; padding: 10px; margin: 5px 0; border-radius: 5px; font-size: 12px;">
-            <strong>ID:</strong> <?= $permiso['id_permiso'] ?> | 
-            <strong>Estado:</strong> <?= $permiso['estado'] ?> | 
-            <strong>Asignado a:</strong> <?= $permiso['asignado_a'] ?> | 
-            <strong>ID Asignado:</strong> <?= $permiso['id_asignado'] ?? 'NULL' ?>
-          </div>
-        <?php endforeach; ?>
-      </div>
-    <?php else: ?>
-      <div style="margin-top: 20px; padding: 15px; background: #fff3cd; border-radius: 8px;">
-        <p style="margin: 0;">⚠️ No se encontraron permisos. Esto puede indicar un problema de asignación.</p>
-      </div>
-    <?php endif; ?>
 
   </div>
   

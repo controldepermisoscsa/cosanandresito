@@ -24,13 +24,16 @@ define('DB_PASS', 'controldepermisoscsa@gmail.com');
 // --- Correo SMTP ---
 define('SMTP_HOST',     'smtp.gmail.com');
 define('SMTP_PORT',     587);
-define('SMTP_USER',     'tucorreo@dominio.com');    // ← tu correo real
-define('SMTP_PASS',     'tu_app_password_aqui');    // ← App Password de Gmail
-define('SMTP_FROM',     'tucorreo@dominio.com');    // ← igual al anterior
+define('SMTP_USER',     'controldepermisoscsa@gmail.com');
+define('SMTP_PASS',     'amkfmxlaexjowevo');
+define('SMTP_FROM',     'controldepermisoscsa@gmail.com');
 define('SMTP_NAME',     'Sistema Coosanandresito');
 
 // --- URL base (sin barra al final) ---
-define('APP_URL', 'https://tudominio.com');         // ← tu dominio real
+// IMPORTANTE: Cambiar esto antes de subir a producción.
+// Ejemplo servidor interno: 'http://192.168.1.100/cosanandresito'
+// Ejemplo dominio propio:   'https://permisos.coosanandresito.com'
+define('APP_URL', 'http://TU_IP_O_DOMINIO/cosanandresito'); // ← ACTUALIZAR
 
 // --- Entorno ---
 define('APP_ENV', 'produccion'); // 'produccion' o 'desarrollo'

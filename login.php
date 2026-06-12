@@ -7,6 +7,12 @@ $error_password = $_SESSION['error_password'] ?? '';
 $error_general = $_SESSION['error_login'] ?? '';
 $username_value = $_SESSION['username_value'] ?? '';
 
+// Mensajes de estado vía GET (ej: después de restablecer contraseña)
+$msg_exito = '';
+if (isset($_GET['msg']) && $_GET['msg'] === 'contraseña_actualizada') {
+    $msg_exito = 'Tu contraseña ha sido actualizada correctamente. Ya puedes iniciar sesión.';
+}
+
 // Limpiar errores de la sesión después de obtenerlos
 unset($_SESSION['error_usuario']);
 unset($_SESSION['error_password']);
@@ -220,6 +226,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 <div class="login-container">
     <img src="assets/img/logo.jpg" alt="Logo">
     <h1>Iniciar Sesión</h1>
+
+    <!-- Mostrar mensaje de éxito si existe -->
+    <?php if (!empty($msg_exito)): ?>
+      <div class="general-error" style="background-color:#d4edda;border-color:#c3e6cb;color:#155724;"><?= htmlspecialchars($msg_exito) ?></div>
+    <?php endif; ?>
 
     <!-- Mostrar error general si existe -->
     <?php if (!empty($error_general)): ?>

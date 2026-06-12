@@ -20,7 +20,6 @@ try {
     // Obtener datos del formulario
     $id_usuario = $_SESSION['usuario_id'];
     $tipo_permiso = $_POST['tipo_permiso'] ?? '';
-    $tipo_pago = $_POST['tipo_pago'] ?? null;
     $motivo = trim($_POST['motivo'] ?? '');
     $fecha_salida = $_POST['fecha_salida'] ?? '';
     $hora_salida = $_POST['hora_salida'] ?? '';
@@ -28,16 +27,6 @@ try {
     $hora_regreso_aprox = $_POST['hora_regreso_aprox'] ?? '';
     $encargado_ausencia = trim($_POST['encargado_ausencia'] ?? '');
     
-    // Procesar fecha_recuperacion solo si está presente y no vacía
-    $fecha_recuperacion = null;
-    if (isset($_POST['fecha_recuperacion']) && !empty($_POST['fecha_recuperacion'])) {
-        $fecha_recuperacion = $_POST['fecha_recuperacion'];
-        // Validar formato datetime-local
-        if (!DateTime::createFromFormat('Y-m-d\TH:i', $fecha_recuperacion)) {
-            throw new Exception('Formato de fecha de recuperación inválido');
-        }
-    }
-
     // Validaciones básicas
     if (!$tipo_permiso || !$motivo || !$fecha_salida || !$hora_salida || !$fecha_regreso_aprox || !$hora_regreso_aprox) {
         throw new Exception('Todos los campos obligatorios deben completarse');
@@ -45,11 +34,6 @@ try {
 
     if (strlen($motivo) < 5) {
         throw new Exception('El motivo debe tener al menos 5 caracteres');
-    }
-
-    // Validar tipo de pago para permisos médicos
-    if ($tipo_permiso === 'Médicos' && !$tipo_pago) {
-        throw new Exception('Debe seleccionar el tipo de pago para permisos médicos');
     }
 
     // Procesamiento de archivo PDF (OPCIONAL) - MEJORADO
@@ -161,22 +145,18 @@ try {
         throw new Exception("No se encontró usuario disponible para asignar el permiso (tipo: {$asignado_a})");
     }
 
-    // --- NUEVO: calcular genera_recuperacion según tipo_pago ---
-    $genera_recuperacion = ($tipo_pago === 'no_remunerado') ? 1 : 0;
-
     // Insertar permiso con manejo mejorado de documento - CORREGIDO
     $stmt = $pdo->prepare("
         INSERT INTO permisos (
-            id_usuario, tipo_permiso, tipo_pago, motivo, documento_pdf,
+            id_usuario, tipo_permiso, motivo, documento_pdf,
             fecha_salida, hora_salida, fecha_regreso_aprox, hora_regreso_aprox,
-            encargado_ausencia, fecha_recuperacion, asignado_a, id_asignado, genera_recuperacion, estado
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente')
+            encargado_ausencia, asignado_a, id_asignado, estado
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente')
     ");
-    
+
     $resultado = $stmt->execute([
         $id_usuario,
         $tipo_permiso,
-        $tipo_pago,
         $motivo,
         $documento_pdf,
         $fecha_salida,
@@ -184,10 +164,8 @@ try {
         $fecha_regreso_aprox,
         $hora_regreso_aprox,
         $encargado_ausencia ?: null,
-        $fecha_recuperacion,
         $asignado_a,
-        $id_asignado,
-        $genera_recuperacion
+        $id_asignado
     ]);
 
     if (!$resultado) {
@@ -355,7 +333,6 @@ try {
             'correos_completamente_exitosos' => $correos_completamente_exitosos,
             'asignado_a' => $asignado_a,
             'id_asignado' => $id_asignado,
-            'genera_recuperacion' => $genera_recuperacion, // <-- agregado para debug
             'flujo_correo' => [
                 'cargo_solicitante' => $cargoUsuario,
                 'paso_1_sin_pdf' => $resultadoCorreosSinPDF ? 'exitoso' : 'error',

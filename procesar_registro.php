@@ -79,7 +79,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         header('Location: registro.php?registro_exitoso=Usuario registrado correctamente');
         exit();
     } catch (PDOException $e) {
-        die("Error al registrar el usuario: " . $e->getMessage());
+        error_log("Error al registrar usuario: " . $e->getMessage());
+        header('Location: registro.php?mensaje=Error interno al registrar. Intenta nuevamente o contacta al administrador.');
+        exit();
     }
 } else {
     header('Location: registro.php');

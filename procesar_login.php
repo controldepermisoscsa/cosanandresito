@@ -20,11 +20,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($usuario_data) {
             // Usuario encontrado, verificar la contraseña
             if (password_verify($password, $usuario_data['password'])) {
+                // Regenerar ID de sesión para prevenir session fixation
+                session_regenerate_id(true);
+
                 // Contraseña correcta - limpiar errores y redirigir
                 unset($_SESSION['error_usuario']);
                 unset($_SESSION['error_password']);
                 unset($_SESSION['error_login']);
-                
+
                 // Guardar datos en la sesión
                 $_SESSION['usuario_id'] = $usuario_data['id_usuario'];
                 $_SESSION['nombre'] = $usuario_data['nombre'];

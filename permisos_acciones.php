@@ -35,10 +35,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $hora_regreso_aprox = $_POST['hora_regreso_aprox'] ?? null;
     $encargado_ausencia = $_POST['encargado_ausencia'] ?? null;
 
-    // NUEVO: tipo_pago y genera_recuperacion
-    $tipo_pago = $_POST['tipo_pago'] ?? null;
-    $genera_recuperacion = ($tipo_pago === 'no_remunerado') ? 1 : 0;
-
     try {
         $pdo->beginTransaction();
         
@@ -137,17 +133,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 throw new Exception("Rol no autorizado para crear solicitudes: " . $rol_usuario);
             }
 
-            // INSERCIÓN CORREGIDA - Incluir tipo_pago y genera_recuperacion e id_asignado
             $stmt = $pdo->prepare("
                 INSERT INTO permisos (
-                    id_usuario, tipo_permiso, tipo_pago, motivo, fecha_salida, hora_salida, 
-                    fecha_regreso_aprox, hora_regreso_aprox, encargado_ausencia, genera_recuperacion, estado, 
+                    id_usuario, tipo_permiso, motivo, fecha_salida, hora_salida,
+                    fecha_regreso_aprox, hora_regreso_aprox, encargado_ausencia, estado,
                     asignado_a, id_asignado
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pendiente', ?, ?)
             ");
             $stmt->execute([
-                $id_usuario, $tipo_permiso, $tipo_pago, $motivo, $fecha_salida, $hora_salida,
-                $fecha_regreso_aprox, $hora_regreso_aprox, $encargado_ausencia, $genera_recuperacion, $asignado_a, $id_asignado
+                $id_usuario, $tipo_permiso, $motivo, $fecha_salida, $hora_salida,
+                $fecha_regreso_aprox, $hora_regreso_aprox, $encargado_ausencia, $asignado_a, $id_asignado
             ]);
 
             $id_permiso_creado = $pdo->lastInsertId();
@@ -173,8 +168,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'asignado_a' => $asignado_a,
                     'id_asignado' => $id_asignado,
                     'rol_usuario' => $rol_usuario,
-                    'tipo_pago' => $tipo_pago,
-                    'genera_recuperacion' => $genera_recuperacion // <-- agregado para debug
                 ]
             ]);
             exit;

@@ -19,7 +19,7 @@ $id_usuario = $_SESSION['usuario_id'];
 $nombre = $_SESSION['nombre'] ?? 'Usuario';
 
 // Permisos que generan recuperación
-$stmt = $pdo->prepare("SELECT id_permiso, tipo_permiso, motivo, fecha_salida, hora_salida, fecha_regreso_aprox, hora_regreso_aprox FROM permisos WHERE id_usuario = ? AND tipo_pago = 'no_remunerado' AND estado = 'finalizado' AND genera_recuperacion = TRUE ORDER BY fecha_salida DESC");
+$stmt = $pdo->prepare("SELECT id_permiso, tipo_permiso, motivo, fecha_salida, hora_salida, fecha_regreso_aprox, hora_regreso_aprox FROM permisos WHERE id_usuario = ? AND estado = 'finalizado' ORDER BY fecha_salida DESC");
 $stmt->execute([$id_usuario]);
 $permisos = $stmt->fetchAll(PDO::FETCH_ASSOC);
 

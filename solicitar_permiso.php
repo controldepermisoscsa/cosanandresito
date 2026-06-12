@@ -211,10 +211,6 @@ if ($mensaje) {
         .btn-cancel:hover {
             background-color: #c82333;
         }
-        #recuperacion-container {
-            margin: 8px 0;
-        }
-
         .error-field {
             border-color: #dc3545 !important;
             background-color: #fff5f5 !important;
@@ -343,16 +339,6 @@ if ($mensaje) {
                 <option value="Personales">Personales</option>
             </select>
 
-            <!-- Campo para tipo de pago (solo visible para permisos médicos) -->
-            <div id="tipo-pago-container" style="display: none;">
-                <label for="tipo_pago">Tipo de Pago:</label>
-                <select id="tipo_pago" name="tipo_pago">
-                    <option value="">Seleccione...</option>
-                    <option value="remunerado">Remunerado (No genera horas por recuperar)</option>
-                    <option value="no_remunerado">No Remunerado (Genera horas por recuperar)</option>
-                </select>
-            </div>
-
             <label for="motivo">Motivo:</label>
             <textarea name="motivo" id="motivo" rows="4" required></textarea>
 
@@ -380,11 +366,6 @@ if ($mensaje) {
             <label for="hora_regreso_aprox">Hora Aproximada de Regreso:</label>
             <input type="time" name="hora_regreso_aprox" id="hora_regreso_aprox" required>
             <div id="error-hora-regreso-aprox" class="field-error" style="display: none;"></div>
-
-            <div id="recuperacion-container" style="display: none;">
-                <label for="fecha_recuperacion">Fecha y Hora de Recuperación:</label>
-                <input type="datetime-local" name="fecha_recuperacion" id="fecha_recuperacion">
-            </div>
 
             <?php if ($mostrarPersonaEncargada): ?>
             <!-- Solo auxiliares ven este campo -->
@@ -480,30 +461,6 @@ if ($mensaje) {
         }
         // =========================================================================
 
-        document.getElementById("tipo_permiso").addEventListener("change", function() {
-            const tipoPermiso = this.value;
-            const recuperacionContainer = document.getElementById("recuperacion-container");
-            const tipoPagoContainer = document.getElementById("tipo-pago-container");
-            const tipoPago = document.getElementById("tipo_pago");
-
-            // Mostrar/ocultar contenedor de tipo de pago para médicos
-            if (tipoPermiso === "Médicos") {
-                tipoPagoContainer.style.display = "block";
-                tipoPago.setAttribute('required', 'required');
-            } else {
-                tipoPagoContainer.style.display = "none";
-                tipoPago.removeAttribute('required');
-                tipoPago.value = "";
-            }
-
-            // Mostrar/ocultar contenedor de recuperación para personales
-            if (tipoPermiso === "Personales") {
-                recuperacionContainer.style.display = "block";
-            } else {
-                recuperacionContainer.style.display = "none";
-                document.getElementById("fecha_recuperacion").value = "";
-            }
-        });
 
         // Validar archivo PDF
         document.getElementById("documento_pdf").addEventListener("change", function() {
@@ -691,18 +648,6 @@ if ($mensaje) {
                 formData.append('encargado_ausencia', '');
             }
             
-            // Solo agregar fecha_recuperacion si está visible y tiene valor
-            const fechaRecuperacion = document.getElementById('fecha_recuperacion').value;
-            if (document.getElementById('recuperacion-container').style.display !== 'none' && fechaRecuperacion) {
-                formData.append('fecha_recuperacion', fechaRecuperacion);
-            }
-
-            // Agregar tipo de pago si está visible y tiene valor
-            const tipoPago = document.getElementById('tipo_pago').value;
-            if (document.getElementById('tipo-pago-container').style.display !== 'none' && tipoPago) {
-                formData.append('tipo_pago', tipoPago);
-            }
-
             // Agregar documento PDF si está cargado
             const documentoPDF = document.getElementById('documento_pdf').files[0];
             if (documentoPDF) {
