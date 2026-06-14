@@ -67,350 +67,394 @@ if ($mensaje) {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Solicitar Permiso</title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
-        /* Estilos generales */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            font-family: Arial, sans-serif;
-            background: linear-gradient(180deg,#f1f5f9 0%, #ffffff 100%);
-            margin: 0;
-            padding: 20px;
-            min-height: 100vh;
-            box-sizing: border-box;
-        }
-
-        .container {
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 6px 24px rgba(16,24,40,0.12);
-            padding: 28px;
-            max-width: 820px;
-            width: 95%;
-            margin: 20px auto;
-        }
-
-        h1 {
-            font-size: 20px;
-            color: #0b5ed7;
-            margin-bottom: 18px;
-            text-align: center;
-            font-weight: 700;
-        }
-
-        .mensaje {
-            background:#eef2ff;
-            color:#0b5ed7;
-            padding:10px;
-            border-radius:6px;
-        }
-        .success-message {
-            background:#e6ffed;
-            color:#0f5132;
-            padding:10px;
-            border-radius:6px;
-        }
-        .error-message {
-            background:#fff3f2;
-            color:#842029;
-            padding:10px;
-            border-radius:6px;
-        }
-        .loading {
-            opacity: 0.6;
-            pointer-events: none;
-        }
-        .hidden {
-            display: none;
-        }
-        label {
-            font-weight: 600;
-            font-size: 13px;
-            color:#333;
-            margin-bottom:6px;
-            display: block;
-        }
-        input, select, textarea {
-            width: 100%;
-            padding: 10px 12px;
-            margin-bottom: 12px;
-            border: 1px solid #e2e8f0;
-            border-radius: 6px;
-            font-size: 14px;
-            background: #fbfdff;
-        }
-        textarea {
-            min-height: 90px;
-            resize: vertical;
-        }
-        button {
-            background-color: #198754;
-            color: #fff;
-            border: none;
-            padding: 12px;
-            width: 100%;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 15px;
-            font-weight: 600;
-        }
-        button:hover {
-            background-color: #218838;
-        }
-        .btn-panel {
-            background-color: #0d6efd;
-            color: #fff;
-            text-align: center;
-            text-decoration: none;
-            padding: 10px;
-            border-radius: 6px;
-            display: block;
-            margin-top: 10px;
-            font-size: 15px;
-            font-weight: 600;
-        }
-        .btn-panel:hover {
-            background-color: #0056b3;
-        }
-        .modal {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
+            font-family: 'Segoe UI', Arial, sans-serif;
             display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1000;
-            display: none;
-        }
-        .modal-content {
-            background-color: #fff;
-            padding: 20px;
-            border-radius: 8px;
-            text-align: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        }
-        .modal-content button {
-            margin-top: 10px;
-            padding: 10px 20px;
-            border: none;
-            border-radius: 4px;
-            cursor: pointer;
-        }
-        .btn-accept {
-            background-color: #28a745;
-            color: #fff;
-        }
-        .btn-accept:hover {
-            background-color: #218838;
-        }
-        .btn-cancel {
-            background-color: #dc3545;
-            color: #fff;
-        }
-        .btn-cancel:hover {
-            background-color: #c82333;
-        }
-        .error-field {
-            border-color: #dc3545 !important;
-            background-color: #fff5f5 !important;
-        }
-        
-        .field-error {
-            color: #dc3545;
-            font-size: 12px;
-            margin-top: 2px;
-            margin-bottom: 8px;
-            display: block;
-            font-weight: 500;
+            height: 100vh;
+            background: #f0f2f5;
+            overflow: hidden;
         }
 
-        @media (max-width:600px) {
-            .container { padding:16px; }
-            input, select, textarea { font-size:13px; }
-        }
-        
-        .modal-warning {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.6);
+        /* ── SIDEBAR ── */
+        .sidebar {
+            width: 240px;
+            background: linear-gradient(180deg, #1a2535 0%, #2c3e50 100%);
             display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 1001;
+            flex-direction: column;
+            flex-shrink: 0;
+            box-shadow: 3px 0 15px rgba(0,0,0,0.3);
         }
-        
-        .modal-warning-content {
-            background-color: #fff;
-            padding: 30px;
+        .sidebar-brand {
+            padding: 24px 20px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+            text-align: center;
+        }
+        .sidebar-brand .brand-icon {
+            width: 48px; height: 48px;
+            background: linear-gradient(135deg, #f39c12, #e67e22);
             border-radius: 12px;
-            text-align: center;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            max-width: 500px;
-            width: 90%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px; margin: 0 auto 10px;
+            box-shadow: 0 4px 12px rgba(243,156,18,0.4);
         }
-        
-        .modal-warning h3 {
-            color: #f39c12;
-            font-size: 18px;
-            margin-bottom: 15px;
+        .sidebar-brand h2 { color: #fff; font-size: 14px; font-weight: 600; }
+        .sidebar-user {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .sidebar-user .user-name { color: #fff; font-size: 13px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sidebar-user .user-role { color: #f39c12; font-size: 11px; margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px; }
+        .sidebar-nav { flex: 1; padding: 16px 12px; display: flex; flex-direction: column; gap: 4px; }
+        .nav-item {
+            display: flex; align-items: center; gap: 12px;
+            color: #adb5bd; text-decoration: none;
+            padding: 11px 14px; border-radius: 10px;
+            font-size: 14px; font-weight: 500; transition: all 0.2s;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .nav-item.activo {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            color: #fff; box-shadow: 0 4px 12px rgba(243,156,18,0.35);
+        }
+        .nav-icon { font-size: 18px; width: 22px; text-align: center; }
+        .sidebar-logout { padding: 12px; border-top: 1px solid rgba(255,255,255,0.08); }
+        .sidebar-logout a {
+            display: flex; align-items: center; gap: 10px;
+            color: #e74c3c; text-decoration: none;
+            padding: 10px 14px; border-radius: 10px;
+            font-size: 14px; font-weight: 500; transition: background 0.2s;
+        }
+        .sidebar-logout a:hover { background: rgba(231,76,60,0.15); }
+
+        /* ── MAIN ── */
+        .main {
+            flex: 1;
+            overflow-y: auto;
+            overflow-x: hidden;
+            padding: 28px 32px;
             display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 10px;
+            flex-direction: column;
         }
-        
-        .modal-warning p {
-            color: #333;
-            font-size: 16px;
-            line-height: 1.5;
-            margin-bottom: 20px;
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 24px;
         }
-        
-        .btn-warning-accept {
-            background-color: #f39c12;
+        .page-header h1 { font-size: 22px; color: #1a2535; font-weight: 700; }
+        .btn-back {
+            display: inline-flex; align-items: center; gap: 6px;
+            background: linear-gradient(135deg, #2c3e50, #1a2535);
             color: #fff;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
-            margin-right: 10px;
+            text-decoration: none; padding: 10px 20px;
+            border-radius: 9px; font-size: 13px; font-weight: 600;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.2);
+            transition: all 0.2s;
         }
-        
-        .btn-warning-accept:hover {
-            background-color: #e67e22;
+        .btn-back:hover { transform: translateY(-1px); box-shadow: 0 5px 14px rgba(0,0,0,0.25); }
+
+        /* ── FORM CARD ── */
+        .form-card {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            padding: 28px 32px;
         }
-        
-        .btn-warning-cancel {
-            background-color: #6c757d;
-            color: #fff;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-            font-weight: 600;
+
+        /* Mensajes */
+        .msg-info    { background:#eef2ff; color:#0b5ed7; padding:11px 14px; border-radius:8px; margin-bottom:16px; font-size:14px; }
+        .msg-success { background:#e6ffed; color:#0f5132; padding:11px 14px; border-radius:8px; margin-bottom:16px; font-size:14px; }
+        .msg-error   { background:#fff3f2; color:#842029; padding:11px 14px; border-radius:8px; margin-bottom:16px; font-size:14px; }
+
+        /* Grid helpers */
+        .row { display: grid; gap: 16px; margin-bottom: 16px; }
+        .row.cols-2 { grid-template-columns: 1fr 1fr; }
+        .row.cols-4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+        .row.cols-1 { grid-template-columns: 1fr; }
+        .col-full   { grid-column: 1 / -1; }
+
+        /* Fields */
+        .field { display: flex; flex-direction: column; }
+        .field label {
+            font-size: 11px; font-weight: 700; color: #6c757d;
+            text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
         }
-        
-        .btn-warning-cancel:hover {
-            background-color: #5a6268;
+        .field input, .field select, .field textarea {
+            padding: 10px 13px;
+            border: 1.5px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 14px;
+            color: #2c3e50;
+            background: #fff;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            width: 100%;
+            font-family: inherit;
+        }
+        .field input:focus, .field select:focus, .field textarea:focus {
+            outline: none;
+            border-color: #f39c12;
+            box-shadow: 0 0 0 3px rgba(243,156,18,0.12);
+        }
+        .field input[readonly] { background: #f8f9fa; color: #868e96; cursor: default; }
+        .field textarea { min-height: 80px; resize: vertical; }
+        .field .hint { font-size: 11px; color: #adb5bd; margin-top: 5px; font-style: italic; }
+        .field-error { color: #dc3545; font-size: 11px; margin-top: 4px; font-weight: 600; display: none; }
+        .error-field { border-color: #dc3545 !important; background: #fff5f5 !important; }
+
+        /* Section divider */
+        .section-title {
+            font-size: 11px; font-weight: 700; color: #adb5bd;
+            text-transform: uppercase; letter-spacing: 1px;
+            margin-bottom: 14px; margin-top: 6px;
+            padding-bottom: 8px; border-bottom: 1px solid #f0f2f5;
+        }
+
+        /* Actions */
+        .form-actions {
+            display: flex; justify-content: center; align-items: center;
+            gap: 12px; margin-top: 24px; padding-top: 20px;
+            border-top: 1px solid #f0f2f5;
+        }
+        .btn-submit {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            color: #fff; border: none;
+            padding: 12px 28px; border-radius: 10px;
+            font-size: 15px; font-weight: 700; cursor: pointer;
+            box-shadow: 0 4px 12px rgba(243,156,18,0.35);
+            transition: all 0.2s; font-family: inherit;
+        }
+        .btn-submit:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(243,156,18,0.45); }
+
+        /* Loading */
+        .loading { opacity: 0.6; pointer-events: none; }
+        .hidden  { display: none !important; }
+
+        /* ── MODALS ── */
+        .modal-overlay {
+            position: fixed; inset: 0;
+            background: rgba(0,0,0,0.55);
+            display: flex; align-items: center; justify-content: center;
+            z-index: 1000;
+        }
+        .modal-box {
+            background: #fff; border-radius: 16px;
+            padding: 32px; text-align: center;
+            box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+            max-width: 460px; width: 90%;
+        }
+        .modal-box .modal-icon { font-size: 40px; margin-bottom: 12px; }
+        .modal-box h3 { font-size: 18px; color: #1a2535; margin-bottom: 10px; }
+        .modal-box p  { font-size: 14px; color: #6c757d; line-height: 1.6; margin-bottom: 22px; }
+        .modal-btns   { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        .modal-btn {
+            padding: 11px 24px; border: none; border-radius: 9px;
+            font-size: 14px; font-weight: 600; cursor: pointer;
+            transition: all 0.2s; font-family: inherit;
+        }
+        .modal-btn-primary { background: linear-gradient(135deg,#f39c12,#e67e22); color:#fff; box-shadow:0 4px 12px rgba(243,156,18,0.3); }
+        .modal-btn-primary:hover { transform:translateY(-1px); }
+        .modal-btn-secondary { background: #f0f2f5; color: #495057; }
+        .modal-btn-secondary:hover { background: #e9ecef; }
+        .modal-btn-success { background: linear-gradient(135deg,#2ecc71,#27ae60); color:#fff; }
+        .modal-btn-danger  { background: linear-gradient(135deg,#e74c3c,#c0392b); color:#fff; }
+
+        @media (max-width: 768px) {
+            body { flex-direction: column; height: auto; overflow: auto; }
+            .sidebar { width: 100%; height: auto; }
+            .row.cols-4 { grid-template-columns: 1fr 1fr; }
+            .main { padding: 16px; }
         }
     </style>
 </head>
 <body>
-    <!-- Modal de advertencia inicial -->
-    <div id="modalWarning" class="modal-warning">
-        <div class="modal-warning-content">
-            <h3>⚠️ Importante</h3>
-            <p>Tenga en cuenta que para enviar una solicitud debe hacerlo mínimo con un día de anticipación.</p>
-            <button id="btnWarningAccept" class="btn-warning-accept">Entendido</button>
-            <button id="btnWarningCancel" class="btn-warning-cancel">Cancelar</button>
+
+    <!-- MODAL ADVERTENCIA INICIAL -->
+    <div id="modalWarning" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-icon">⚠️</div>
+            <h3>Antes de continuar</h3>
+            <p>Tenga en cuenta que para enviar una solicitud de permiso debe hacerlo <strong>mínimo con un día de anticipación</strong>.</p>
+            <div class="modal-btns">
+                <button id="btnWarningAccept" class="modal-btn modal-btn-primary">Entendido, continuar</button>
+                <button id="btnWarningCancel" class="modal-btn modal-btn-secondary">Cancelar</button>
+            </div>
         </div>
     </div>
 
-    <div class="container" id="mainContainer" style="display: none;">
-        <h1>Solicitar Permiso</h1>
-
-        <!-- Contenedor para mensajes dinámicos -->
-        <div id="mensaje-container"></div>
-
-        <?php if (!empty($mensaje)): ?>
-            <div class="mensaje"><?= htmlspecialchars($mensaje); ?></div>
-        <?php endif; ?>
-
-        <form id="formPermiso" enctype="multipart/form-data">
-            <input type="hidden" name="accion" value="crear">
-            <label>Nombre y Apellido:</label>
-            <input type="text" name="nombre_usuario" value="<?= htmlspecialchars($nombreUsuario) ?>" readonly>
-
-            <label>Fecha de Solicitud:</label>
-            <input type="date" name="fecha_solicitud" value="<?= htmlspecialchars($fechaActual) ?>" readonly>
-
-            <label for="tipo_permiso">Tipo de Permiso:</label>
-            <select id="tipo_permiso" name="tipo_permiso" required>
-                <option value="">Seleccione...</option>
-                <option value="Médicos">Médicos</option>
-                <option value="Laborales">Laborales</option>
-                <option value="Personales">Personales</option>
-            </select>
-
-            <label for="motivo">Motivo:</label>
-            <textarea name="motivo" id="motivo" rows="4" required></textarea>
-
-            <!-- Campo para cargar documento PDF -->
-            <div id="documento-container">
-                <label for="documento_pdf">Documento de Soporte (PDF - Opcional):</label>
-                <input type="file" id="documento_pdf" name="documento_pdf" accept=".pdf" />
-                <small style="color: #6c757d; font-style: italic; display: block; margin-bottom: 12px;">
-                    📄 Campo opcional. Solo se permiten archivos PDF. Máximo 5MB.
-                </small>
-            </div>
-
-            <label for="fecha_salida">Fecha de Salida:</label>
-            <input type="date" name="fecha_salida" id="fecha_salida" required>
-            <div id="error-fecha-salida" class="field-error" style="display: none;"></div>
-
-            <label for="hora_salida">Hora de Salida:</label>
-            <input type="time" name="hora_salida" id="hora_salida" required>
-            <div id="error-hora-salida" class="field-error" style="display: none;"></div>
-
-            <label for="fecha_regreso_aprox">Fecha Aproximada de Regreso:</label>
-            <input type="date" name="fecha_regreso_aprox" id="fecha_regreso_aprox" required>
-            <div id="error-fecha-regreso-aprox" class="field-error" style="display: none;"></div>
-
-            <label for="hora_regreso_aprox">Hora Aproximada de Regreso:</label>
-            <input type="time" name="hora_regreso_aprox" id="hora_regreso_aprox" required>
-            <div id="error-hora-regreso-aprox" class="field-error" style="display: none;"></div>
-
-            <?php if ($mostrarPersonaEncargada): ?>
-            <!-- Solo auxiliares ven este campo -->
-            <label for="encargado_ausencia">Persona Encargada en su Ausencia:</label>
-            <input type="text" name="encargado_ausencia" id="encargado_ausencia" 
-                   placeholder="El coordinador asignará la persona encargada" readonly
-                   style="background-color: #f8f9fa; color: #6c757d;">
-            <small style="color: #6c757d; font-style: italic; display: block; margin-bottom: 12px;">
-                ℹ️ El coordinador asignará la persona encargada cuando revise su solicitud
-            </small>
-            <?php else: ?>
-            <!-- Para administradores, coordinadores y administrativos: campo oculto vacío -->
-            <input type="hidden" name="encargado_ausencia" value="">
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon">📋</div>
+            <h2>Coosanandresito</h2>
+        </div>
+        <div class="sidebar-user">
+            <div class="user-name"><?= htmlspecialchars($nombreUsuario) ?></div>
+            <div class="user-role"><?= htmlspecialchars(ucfirst($cargo)) ?></div>
+        </div>
+        <nav class="sidebar-nav">
+            <a href="<?= htmlspecialchars($archivoPanel) ?>" class="nav-item">
+                <span class="nav-icon">🏠</span> Inicio
+            </a>
+            <a href="solicitar_permiso.php?nuevo=1" class="nav-item activo">
+                <span class="nav-icon">📝</span> Solicitar Permiso
+            </a>
+            <a href="ver_permisos.php" class="nav-item">
+                <span class="nav-icon">📂</span> Mis Permisos
+            </a>
+            <?php if ($cargo === 'auxiliar'): ?>
+            <a href="recuperar_tiempo.php" class="nav-item">
+                <span class="nav-icon">⏱️</span> Recuperar Tiempo
+            </a>
             <?php endif; ?>
-
-            <button type="button" id="btnEnviar">Enviar Solicitud</button>
-        </form>
-
-        <a href="<?= htmlspecialchars($archivoPanel) ?>" class="btn-panel" id="btnVolver">Volver al Panel</a>
+        </nav>
+        <div class="sidebar-logout">
+            <a href="logout.php"><span style="font-size:16px;">🚪</span> Cerrar Sesión</a>
+        </div>
     </div>
 
-    <div id="modal" class="modal">
-        <div class="modal-content">
-            <h3 id="modal-message"></h3>
-            <button id="btn-accept" class="btn-accept">Aceptar</button>
-            <button id="btn-cancel" class="btn-cancel">Cancelar</button>
+    <!-- CONTENIDO PRINCIPAL -->
+    <div class="main" id="mainContainer" style="display:none;">
+
+        <div class="page-header">
+            <h1>📝 Solicitar Permiso</h1>
+        </div>
+
+        <div class="form-card container">
+
+            <div id="mensaje-container"></div>
+            <?php if (!empty($mensaje)): ?>
+                <div class="msg-info"><?= htmlspecialchars($mensaje) ?></div>
+            <?php endif; ?>
+
+            <form id="formPermiso" enctype="multipart/form-data">
+                <input type="hidden" name="accion" value="crear">
+
+                <!-- Fila 1: Datos del solicitante -->
+                <div class="section-title">Datos del Solicitante</div>
+                <div class="row cols-2">
+                    <div class="field">
+                        <label>Nombre y Apellido</label>
+                        <input type="text" name="nombre_usuario" value="<?= htmlspecialchars($nombreUsuario) ?>" readonly>
+                    </div>
+                    <div class="field">
+                        <label>Fecha de Solicitud</label>
+                        <input type="date" name="fecha_solicitud" value="<?= htmlspecialchars($fechaActual) ?>" readonly>
+                    </div>
+                </div>
+
+                <!-- Fila 2: Tipo + Documento -->
+                <div class="section-title">Detalles del Permiso</div>
+                <div class="row cols-2">
+                    <div class="field">
+                        <label>Tipo de Permiso *</label>
+                        <select id="tipo_permiso" name="tipo_permiso" required>
+                            <option value="">Seleccione...</option>
+                            <option value="Médicos">Médicos</option>
+                            <option value="Laborales">Laborales</option>
+                            <option value="Personales">Personales</option>
+                        </select>
+                    </div>
+                    <div class="field" id="documento-container">
+                        <label>Documento de Soporte (PDF)</label>
+                        <input type="file" id="documento_pdf" name="documento_pdf" accept=".pdf">
+                        <span class="hint">📄 Opcional · Solo PDF · Máximo 5 MB</span>
+                    </div>
+                </div>
+
+                <!-- Fila 3: Motivo -->
+                <div class="row cols-1">
+                    <div class="field">
+                        <label>Motivo *</label>
+                        <textarea name="motivo" id="motivo" rows="3" required placeholder="Describa el motivo del permiso..."></textarea>
+                    </div>
+                </div>
+
+                <!-- Fila 4: Fechas y horas -->
+                <div class="section-title">Fechas y Horario</div>
+                <div class="row cols-4">
+                    <div class="field">
+                        <label>Fecha de Salida *</label>
+                        <input type="date" name="fecha_salida" id="fecha_salida" required>
+                        <span id="error-fecha-salida" class="field-error"></span>
+                    </div>
+                    <div class="field">
+                        <label>Hora de Salida *</label>
+                        <input type="time" name="hora_salida" id="hora_salida" required>
+                        <span id="error-hora-salida" class="field-error"></span>
+                    </div>
+                    <div class="field">
+                        <label>Fecha Aprox. Regreso *</label>
+                        <input type="date" name="fecha_regreso_aprox" id="fecha_regreso_aprox" required>
+                        <span id="error-fecha-regreso-aprox" class="field-error"></span>
+                    </div>
+                    <div class="field">
+                        <label>Hora Aprox. Regreso *</label>
+                        <input type="time" name="hora_regreso_aprox" id="hora_regreso_aprox" required>
+                        <span id="error-hora-regreso-aprox" class="field-error"></span>
+                    </div>
+                </div>
+
+                <!-- Persona encargada (solo auxiliares) -->
+                <?php if ($mostrarPersonaEncargada): ?>
+                <div class="row cols-1">
+                    <div class="field">
+                        <label>Persona Encargada en su Ausencia</label>
+                        <input type="text" name="encargado_ausencia" id="encargado_ausencia"
+                               placeholder="El coordinador asignará la persona encargada" readonly>
+                        <span class="hint">ℹ️ El coordinador asignará la persona encargada al revisar su solicitud</span>
+                    </div>
+                </div>
+                <?php else: ?>
+                <input type="hidden" name="encargado_ausencia" value="">
+                <?php endif; ?>
+
+                <div class="form-actions">
+                    <a href="<?= htmlspecialchars($archivoPanel) ?>" class="btn-back">Cancelar</a>
+                    <button type="button" id="btnEnviar" class="btn-submit">Enviar Solicitud →</button>
+                </div>
+
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL CONFIRMACIÓN DE ENVÍO -->
+    <div id="modal" class="modal-overlay" style="display:none;">
+        <div class="modal-box">
+            <div class="modal-icon">⏱️</div>
+            <h3>Confirmar Solicitud</h3>
+            <p id="modal-message"></p>
+            <div class="modal-btns">
+                <button id="btn-accept" class="modal-btn modal-btn-success">Sí, enviar</button>
+                <button id="btn-cancel" class="modal-btn modal-btn-secondary">Revisar</button>
+            </div>
         </div>
     </div>
 
     <script>
-        // Mostrar modal de advertencia al cargar la página
+        // Mostrar modal solo si viene con ?nuevo=1
         document.addEventListener('DOMContentLoaded', function() {
-            const modalWarning = document.getElementById('modalWarning');
+            const modalWarning  = document.getElementById('modalWarning');
             const mainContainer = document.getElementById('mainContainer');
-            const btnWarningAccept = document.getElementById('btnWarningAccept');
-            const btnWarningCancel = document.getElementById('btnWarningCancel');
-            
-            modalWarning.style.display = 'flex';
-            
-            btnWarningAccept.addEventListener('click', function() {
+            const esNuevo = new URLSearchParams(window.location.search).get('nuevo') === '1';
+
+            if (esNuevo) {
+                modalWarning.style.display = 'flex';
+            } else {
                 modalWarning.style.display = 'none';
-                mainContainer.style.display = 'block';
+                mainContainer.style.display = 'flex';
+            }
+
+            document.getElementById('btnWarningAccept').addEventListener('click', function() {
+                modalWarning.style.display = 'none';
+                mainContainer.style.display = 'flex';
+                // Limpiar ?nuevo=1 de la URL para que F5 no vuelva a mostrar el modal
+                history.replaceState(null, '', 'solicitar_permiso.php');
             });
-            
-            btnWarningCancel.addEventListener('click', function() {
+
+            document.getElementById('btnWarningCancel').addEventListener('click', function() {
                 window.location.href = '<?= htmlspecialchars($archivoPanel) ?>';
             });
         });
@@ -539,7 +583,7 @@ if ($mensaje) {
             }
 
             if (dtRegreso <= dtSalida) {
-                mostrarMensaje("La fecha y hora aproximada de regreso debe ser posterior a la fecha y hora de salida.", "error");
+                mostrarMensaje("La fecha y hora aproximada de regreso debe ser posterior a la fecha y hora de salida.\n\nEjemplo: si sales el 13/06/2026 a las 08:00 AM, el regreso debe ser el mismo día después de las 08:00 AM o en una fecha posterior.", "error");
                 return;
             }
 
@@ -673,19 +717,8 @@ if ($mensaje) {
                 container.classList.remove("loading");
                 
                 if (data.success) {
-                    mostrarMensaje("✅ " + data.message, "success");
-                    
                     form.classList.add("hidden");
-                    
-                    const btnVolver = document.getElementById("btnVolver");
-                    btnVolver.style.backgroundColor = "#28a745";
-                    btnVolver.style.fontSize = "18px";
-                    btnVolver.style.padding = "15px";
-                    btnVolver.textContent = "✅ Solicitud Enviada - Volver al Panel";
-                    
-                    setTimeout(() => {
-                        window.location.href = 'ver_permisos.php?msg=' + encodeURIComponent('Solicitud creada exitosamente');
-                    }, 3000);
+                    mostrarMensaje("✅ " + data.message, "success");
                     
                 } else {
                     mostrarMensaje("❌ Error: " + (data.error || 'Error desconocido'), "error");
@@ -698,25 +731,42 @@ if ($mensaje) {
         }
 
         function mostrarMensaje(mensaje, tipo) {
-            const container = document.getElementById("mensaje-container");
-            let className = "";
-            
-            switch(tipo) {
-                case "success":
-                    className = "success-message";
-                    break;
-                case "error":
-                    className = "error-message";
-                    break;
-                case "info":
-                    className = "mensaje";
-                    break;
-                default:
-                    className = "mensaje";
+            const texto = mensaje.replace(/^[❌✅📤🔌⚠️]\s*/, '');
+
+            if (tipo === 'info') {
+                Swal.fire({
+                    title: 'Enviando solicitud...',
+                    text: 'Por favor espera.',
+                    allowOutsideClick: false,
+                    showConfirmButton: false,
+                    didOpen: () => Swal.showLoading()
+                });
+                return;
             }
-            
-            container.innerHTML = `<div class="${className}">${mensaje}</div>`;
-            container.scrollIntoView({ behavior: 'smooth' });
+
+            if (tipo === 'success') {
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Solicitud enviada!',
+                    text: texto,
+                    confirmButtonColor: '#f39c12',
+                    confirmButtonText: 'Ver mis permisos',
+                    allowOutsideClick: false,
+                    timer: 3000,
+                    timerProgressBar: true
+                }).then(() => {
+                    window.location.href = 'ver_permisos.php?msg=' + encodeURIComponent('Solicitud creada exitosamente');
+                });
+                return;
+            }
+
+            Swal.fire({
+                icon: 'warning',
+                title: 'Atención',
+                html: texto.replace(/\n\n/g, '<br><br>').replace(/\n/g, '<br>'),
+                confirmButtonColor: '#f39c12',
+                confirmButtonText: 'Entendido'
+            });
         }
     </script>
 </body>

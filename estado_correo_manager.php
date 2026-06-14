@@ -17,8 +17,8 @@ class EstadoCorreoManager {
     private function crearNotificacion($id_usuario, $mensaje) {
         try {
             $stmt = $this->pdo->prepare("
-                INSERT INTO notificaciones (id_usuario, mensaje, fecha_envio, leido) 
-                VALUES (?, ?, NOW(), 0)
+                INSERT INTO notificaciones (id_usuario, mensaje, fecha_envio, leido)
+                VALUES (?, ?, NOW(), false)
             ");
             return $stmt->execute([$id_usuario, $mensaje]);
         } catch (Exception $e) {

@@ -35,9 +35,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $hora_regreso_aprox = $_POST['hora_regreso_aprox'] ?? null;
     $encargado_ausencia = $_POST['encargado_ausencia'] ?? null;
 
+    // ── LOG: entrada ──────────────────────────────────────────────────────────
+    error_log("[PA] ── ENTRADA ── accion={$accion} id_permiso={$id_permiso} rol={$rol_usuario} id_usuario={$id_usuario}");
+
     try {
         $pdo->beginTransaction();
-        
+
         // Instanciar el manager de estados y correos
         $estadoCorreo = new EstadoCorreoManager($pdo);
 
@@ -175,34 +178,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // APROBAR (solo gerente) - ACTUALIZADA para manejar persona encargada
         if ($accion === 'aprobar') {
-            $es_gerente = in_array($rol_usuario, ['gerente', 'gerencia']) || 
-                         stripos($rol_usuario, 'gerente') !== false || 
+            $es_gerente = in_array($rol_usuario, ['gerente', 'gerencia']) ||
+                         stripos($rol_usuario, 'gerente') !== false ||
                          stripos($rol_usuario, 'gerencia') !== false;
-            
+
             if (!$es_gerente) {
                 throw new Exception("Acción no autorizada para el rol: '$rol_usuario'");
             }
-            
+
+            // Log: estado actual antes de aprobar
+            $stCheck = $pdo->prepare("SELECT estado FROM permisos WHERE id_permiso = ?");
+            $stCheck->execute([$id_permiso]);
+            $estadoActual = $stCheck->fetchColumn();
+            error_log("[PA][APROBAR] id_permiso={$id_permiso} estado_actual={$estadoActual}");
+
             // Obtener persona encargada del formulario (puede estar vacía)
             $encargado_ausencia_gerente = trim($_POST['encargado_ausencia'] ?? '');
-            
+
             // Actualizar permiso incluyendo persona encargada si se proporcionó
             $stmt = $pdo->prepare("
-                UPDATE permisos 
-                SET estado = 'aprobado', 
-                    asignado_a = NULL, 
-                    id_asignado = NULL, 
+                UPDATE permisos
+                SET estado = 'aprobado',
+                    asignado_a = NULL,
+                    id_asignado = NULL,
                     motivo_rechazo = NULL,
                     encargado_ausencia = ?
                 WHERE id_permiso = ?
+                  AND estado IN ('pendiente','reenviado')
             ");
             $stmt->execute([
                 !empty($encargado_ausencia_gerente) ? $encargado_ausencia_gerente : null,
                 $id_permiso
             ]);
-            
+
+            error_log("[PA][APROBAR] rowCount=" . $stmt->rowCount() . " id_permiso={$id_permiso}");
+
             if ($stmt->rowCount() === 0) {
-                throw new Exception("Permiso no encontrado con ID: $id_permiso");
+                throw new Exception("El permiso ya fue procesado o no existe. (estado era: {$estadoActual})");
             }
 
             // 🔥 CORREO: GERENTE APRUEBA
@@ -215,17 +227,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // RECHAZAR (solo gerente) - FLUJO CORREGIDO
         if ($accion === 'rechazar') {
-            $es_gerente = in_array($rol_usuario, ['gerente', 'gerencia']) || 
-                         stripos($rol_usuario, 'gerente') !== false || 
+            $es_gerente = in_array($rol_usuario, ['gerente', 'gerencia']) ||
+                         stripos($rol_usuario, 'gerente') !== false ||
                          stripos($rol_usuario, 'gerencia') !== false;
-            
+
             if (!$es_gerente) {
                 throw new Exception("Acción no autorizada para el rol: '$rol_usuario'");
             }
-            
+
             if (empty($motivo_rechazo)) {
                 throw new Exception("El motivo del rechazo es obligatorio");
             }
+
+            // Log: estado actual antes de rechazar
+            $stCheck2 = $pdo->prepare("SELECT estado FROM permisos WHERE id_permiso = ?");
+            $stCheck2->execute([$id_permiso]);
+            $estadoActualR = $stCheck2->fetchColumn();
+            error_log("[PA][RECHAZAR] id_permiso={$id_permiso} estado_actual={$estadoActualR}");
 
             // Obtener información del solicitante
             $stmt = $pdo->prepare("
@@ -263,17 +281,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $stmt = $pdo->prepare("
-                UPDATE permisos 
-                SET estado = 'rechazado', 
-                    asignado_a = ?, 
-                    id_asignado = ?, 
+                UPDATE permisos
+                SET estado = 'rechazado',
+                    asignado_a = ?,
+                    id_asignado = ?,
                     motivo_rechazo = ?
                 WHERE id_permiso = ?
+                  AND estado IN ('pendiente','reenviado')
             ");
             $stmt->execute([$asignado_a, $id_asignado_final, $motivo_rechazo, $id_permiso]);
 
+            error_log("[PA][RECHAZAR] rowCount=" . $stmt->rowCount() . " id_permiso={$id_permiso}");
+
             if ($stmt->rowCount() === 0) {
-                throw new Exception("No se pudo actualizar el permiso");
+                throw new Exception("El permiso ya fue procesado o no existe. (estado era: {$estadoActualR})");
             }
 
             // 🔥 CORREOS: GERENTE RECHAZA (ahora con motivo)
@@ -366,7 +387,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // ACTUALIZAR TODO EN UNA SOLA OPERACIÓN - ACTUALIZADA
             $stmt_update = $pdo->prepare("
-                UPDATE permisos 
+                UPDATE permisos
                 SET tipo_permiso = ?,
                     motivo = ?,
                     fecha_salida = ?,
@@ -379,6 +400,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     id_asignado = ?,
                     motivo_rechazo = NULL
                 WHERE id_permiso = ?
+                  AND id_usuario = ?
+                  AND estado = 'rechazado'
             ");
 
             $parametros_update = [
@@ -391,7 +414,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 !empty($nuevo_encargado) ? $nuevo_encargado : null,
                 $nuevo_asignado_a,
                 $nuevo_id_asignado,
-                $id_permiso
+                $id_permiso,
+                $id_usuario,
             ];
 
             error_log("[REENVIAR] Ejecutando UPDATE con parámetros: " . json_encode($parametros_update));
@@ -439,15 +463,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // CANCELAR
         if ($accion === 'cancelar') {
+            $stCheck3 = $pdo->prepare("SELECT estado FROM permisos WHERE id_permiso = ?");
+            $stCheck3->execute([$id_permiso]);
+            $estadoActualC = $stCheck3->fetchColumn();
+            error_log("[PA][CANCELAR] id_permiso={$id_permiso} estado_actual={$estadoActualC}");
+
             $stmt = $pdo->prepare("
-                UPDATE permisos 
+                UPDATE permisos
                 SET estado = 'cancelado', asignado_a = NULL, id_asignado = NULL
                 WHERE id_permiso = ?
+                  AND estado NOT IN ('cancelado','finalizado')
             ");
             $stmt->execute([$id_permiso]);
 
+            error_log("[PA][CANCELAR] rowCount=" . $stmt->rowCount() . " id_permiso={$id_permiso}");
+
             if ($stmt->rowCount() === 0) {
-                throw new Exception("Permiso no encontrado con ID: $id_permiso");
+                throw new Exception("El permiso ya fue cancelado o finalizado. (estado era: {$estadoActualC})");
             }
 
             // 🔥 CORREO: GERENTE CANCELA
@@ -477,14 +509,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
 
             $stmt = $pdo->prepare("
-                UPDATE permisos 
+                UPDATE permisos
                 SET estado = 'pendiente', asignado_a = 'gerente', id_asignado = ?
                 WHERE id_permiso = ?
+                  AND asignado_a = 'coordinador'
+                  AND estado IN ('pendiente','reenviado')
             ");
             $stmt->execute([$gerente['id_usuario'], $id_permiso]);
 
             if ($stmt->rowCount() === 0) {
-                throw new Exception("No se pudo actualizar el permiso");
+                throw new Exception("El permiso ya fue enviado a gerencia o no está asignado al coordinador.");
             }
 
             // 🔥 CORREO: COORDINADOR ENVÍA A GERENTE
@@ -541,8 +575,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         throw new Exception("Acción '$accion' no válida o no implementada");
 
     } catch (Exception $e) {
-        $pdo->rollBack();
-        error_log("ERROR en permisos_acciones.php: " . $e->getMessage());
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        error_log("[PA] ── ERROR ── " . $e->getMessage() . " | accion={$accion} id_permiso={$id_permiso}");
         http_response_code(400);
         echo json_encode([
             'success' => false, 

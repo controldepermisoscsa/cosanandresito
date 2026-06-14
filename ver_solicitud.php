@@ -2,7 +2,6 @@
 session_start();
 require 'conexion.php';
 
-// Verificar si el usuario ha iniciado sesión
 if (!isset($_SESSION['usuario_id']) || !isset($_SESSION['nombre'])) {
     header('Location: login.php?mensaje=Debes iniciar sesión para acceder a esta página.');
     exit();
@@ -10,40 +9,64 @@ if (!isset($_SESSION['usuario_id']) || !isset($_SESSION['nombre'])) {
 
 $cargo = strtolower($_SESSION['cargo'] ?? '');
 
-// Determinar si es vista de gerente o usuario normal
-$esGerente = ($cargo === 'gerente');
+$esGerente          = in_array($cargo, ['gerente', 'gerencia']);
 $esCoordinadorAdmin = in_array($cargo, ['coordinador', 'administrador']);
 
-// Determinar el archivo del panel de regreso según el cargo
 $panelRegreso = match (strtolower(trim($cargo))) {
-    'administrador' => 'admin_inicio.php',
-    'coordinador' => 'coordinador_inicio.php',
-    'auxiliar' => 'auxiliar_inicio.php',
-    'administrativo' => 'administrativo_inicio.php',
+    'administrador'       => 'admin_inicio.php',
+    'coordinador'         => 'coordinador_inicio.php',
+    'auxiliar'            => 'auxiliar_inicio.php',
+    'administrativo'      => 'administrativo_inicio.php',
     'gerente', 'gerencia' => 'gerente_inicio.php',
-    default => 'inicio.php',
+    default               => 'inicio.php',
 };
 
 $nombrePanel = match (strtolower(trim($cargo))) {
-    'administrador' => 'Panel de Administrador',
-    'coordinador' => 'Panel de Coordinador',
-    'auxiliar' => 'Panel de Auxiliar',
-    'administrativo' => 'Panel de Administrativo',
+    'administrador'       => 'Panel de Administrador',
+    'coordinador'         => 'Panel de Coordinador',
+    'auxiliar'            => 'Panel de Auxiliar',
+    'administrativo'      => 'Panel de Administrativo',
     'gerente', 'gerencia' => 'Panel de Gerente',
-    default => 'Panel Principal',
+    default               => 'Panel Principal',
 };
 
-// Obtener el ID del permiso desde la URL
-$id_permiso = $_GET['id'] ?? null;
+$navItems = match (strtolower(trim($cargo))) {
+    'auxiliar' => [
+        ['href' => 'auxiliar_inicio.php',          'icon' => '🏠', 'label' => 'Inicio'],
+        ['href' => 'solicitar_permiso.php?nuevo=1', 'icon' => '📝', 'label' => 'Solicitar Permiso'],
+        ['href' => 'ver_permisos.php',             'icon' => '📂', 'label' => 'Mis Permisos'],
+        ['href' => 'recuperar_tiempo.php',         'icon' => '⏱️', 'label' => 'Recuperar Tiempo'],
+    ],
+    'administrativo' => [
+        ['href' => 'administrativo_inicio.php',    'icon' => '🏠', 'label' => 'Inicio'],
+        ['href' => 'solicitar_permiso.php?nuevo=1','icon' => '📝', 'label' => 'Solicitar Permiso'],
+        ['href' => 'ver_permisos.php',             'icon' => '📂', 'label' => 'Mis Permisos'],
+    ],
+    'coordinador' => [
+        ['href' => 'coordinador_inicio.php',       'icon' => '🏠', 'label' => 'Inicio'],
+        ['href' => 'solicitar_permiso.php?nuevo=1','icon' => '📝', 'label' => 'Solicitar Permiso'],
+        ['href' => 'ver_permisos.php',             'icon' => '📂', 'label' => 'Mis Permisos'],
+    ],
+    'administrador' => [
+        ['href' => 'admin_inicio.php',             'icon' => '🏠', 'label' => 'Inicio'],
+        ['href' => 'solicitar_permiso.php?nuevo=1','icon' => '📝', 'label' => 'Solicitar Permiso'],
+        ['href' => 'ver_permisos.php',             'icon' => '📂', 'label' => 'Mis Permisos'],
+        ['href' => 'gestionar_usuarios.php',       'icon' => '👥', 'label' => 'Gestionar Usuarios'],
+    ],
+    'gerente', 'gerencia' => [
+        ['href' => 'gerente_inicio.php',           'icon' => '🏠', 'label' => 'Inicio'],
+        ['href' => 'ver_permisos.php',             'icon' => '📂', 'label' => 'Ver Solicitudes'],
+    ],
+    default => [['href' => 'inicio.php', 'icon' => '🏠', 'label' => 'Inicio']],
+};
 
+$id_permiso = $_GET['id'] ?? null;
 if (!$id_permiso) {
-    header('Location: gerente_inicio.php?mensaje=ID de permiso no válido.');
+    header('Location: ' . $panelRegreso . '?mensaje=ID de permiso no válido.');
     exit();
 }
 
-// Consultar los detalles del permiso
 if ($esGerente) {
-    // Consultar los detalles del permiso para gerente
     $stmt = $pdo->prepare("
         SELECT p.*, u.nombre AS nombre_empleado, u.area, c.nombre_cargo AS cargo
         FROM permisos p
@@ -53,7 +76,6 @@ if ($esGerente) {
     ");
     $stmt->execute(['id_permiso' => $id_permiso]);
 } else {
-    // Para usuarios normales, solo pueden ver sus propios permisos
     $stmt = $pdo->prepare("
         SELECT p.*, u.nombre AS nombre_empleado, u.area, c.nombre_cargo AS cargo
         FROM permisos p
@@ -67,800 +89,1390 @@ if ($esGerente) {
 $permiso = $stmt->fetch(PDO::FETCH_ASSOC);
 
 if (!$permiso) {
-    $redirectUrl = $esGerente ? 'gerente_inicio.php' : 'inicio.php';
-    header("Location: {$redirectUrl}?mensaje=Permiso no encontrado o no tienes acceso.");
+    header("Location: {$panelRegreso}?mensaje=Permiso no encontrado o no tienes acceso.");
     exit();
 }
 
-// Función para calcular tiempo de ausencia en horario laboral
 function calcularTiempoAusencia($fecha_salida, $hora_salida, $fecha_regreso_aprox, $hora_regreso_aprox) {
-    // Horarios laborales por día
     $horariosLaborales = [
-        1 => [['07:30', '12:00'], ['14:00', '17:30']], // Lunes
-        2 => [['07:30', '12:00'], ['14:00', '17:30']], // Martes
-        3 => [['07:30', '12:00'], ['14:00', '17:30']], // Miércoles
-        4 => [['07:30', '12:00'], ['14:00', '17:30']], // Jueves
-        5 => [['07:30', '12:00'], ['14:00', '17:00']], // Viernes
-        6 => [['08:00', '12:30']]                      // Sábado
+        1 => [['07:30', '12:00'], ['14:00', '17:30']],
+        2 => [['07:30', '12:00'], ['14:00', '17:30']],
+        3 => [['07:30', '12:00'], ['14:00', '17:30']],
+        4 => [['07:30', '12:00'], ['14:00', '17:30']],
+        5 => [['07:30', '12:00'], ['14:00', '17:00']],
+        6 => [['08:00', '12:30']],
     ];
-    
-    $fechaInicio = new DateTime("{$fecha_salida} {$hora_salida}");
-    $fechaFin = new DateTime("{$fecha_regreso_aprox} {$hora_regreso_aprox}");
+    $fechaInicio  = new DateTime("{$fecha_salida} {$hora_salida}");
+    $fechaFin     = new DateTime("{$fecha_regreso_aprox} {$hora_regreso_aprox}");
     $totalMinutos = 0;
-    $fechaActual = clone $fechaInicio;
-    
+    $fechaActual  = clone $fechaInicio;
+
     while ($fechaActual <= $fechaFin) {
-        $diaSemana = (int)$fechaActual->format('N'); // 1=lunes, 7=domingo
-        $fechaStr = $fechaActual->format('Y-m-d');
-        
-        // Solo procesar días laborales (lunes a sábado)
+        $diaSemana = (int)$fechaActual->format('N');
+        $fechaStr  = $fechaActual->format('Y-m-d');
         if ($diaSemana <= 6 && isset($horariosLaborales[$diaSemana])) {
             foreach ($horariosLaborales[$diaSemana] as $rango) {
                 $inicioRango = new DateTime("{$fechaStr} {$rango[0]}");
-                $finRango = new DateTime("{$fechaStr} {$rango[1]}");
-                
-                // Verificar intersección con el periodo de ausencia
+                $finRango    = new DateTime("{$fechaStr} {$rango[1]}");
                 $inicio = max($fechaInicio, $inicioRango);
-                $fin = min($fechaFin, $finRango);
-                
+                $fin    = min($fechaFin, $finRango);
                 if ($inicio < $fin) {
-                    $diferencia = $fin->diff($inicio);
-                    $minutos = ($diferencia->h * 60) + $diferencia->i;
-                    $totalMinutos += $minutos;
+                    $diff = $fin->diff($inicio);
+                    $totalMinutos += ($diff->h * 60) + $diff->i;
                 }
             }
         }
-        
-        // Avanzar al siguiente día
         $fechaActual->add(new DateInterval('P1D'));
         $fechaActual->setTime(0, 0, 0);
     }
-    
     return $totalMinutos;
 }
 
-// Función para formatear hora en formato AM/PM
 function formatearHoraAMPM($hora) {
     return date('g:i A', strtotime($hora));
 }
 
-// Calcular tiempo de ausencia
 $tiempoAusenciaMinutos = 0;
 if ($permiso['fecha_salida'] && $permiso['hora_salida'] && $permiso['fecha_regreso_aprox'] && $permiso['hora_regreso_aprox']) {
     $tiempoAusenciaMinutos = calcularTiempoAusencia(
-        $permiso['fecha_salida'], 
-        $permiso['hora_salida'], 
-        $permiso['fecha_regreso_aprox'], 
+        $permiso['fecha_salida'],
+        $permiso['hora_salida'],
+        $permiso['fecha_regreso_aprox'],
         $permiso['hora_regreso_aprox']
     );
 }
-
-$horasAusencia = floor($tiempoAusenciaMinutos / 60);
+$horasAusencia   = floor($tiempoAusenciaMinutos / 60);
 $minutosAusencia = $tiempoAusenciaMinutos % 60;
 
-// Determinar si el gerente puede editar persona encargada
-$cargoSolicitante = strtolower($permiso['cargo']);
+$cargoSolicitante     = strtolower($permiso['cargo']);
 $puedeEditarEncargado = $esGerente && in_array($cargoSolicitante, ['administrador', 'coordinador', 'administrativo']);
+
+// ── TRACKER DE PROGRESO ──
+$incluyeCoordinador = ($cargoSolicitante === 'auxiliar');
+
+if ($incluyeCoordinador) {
+    $tracker_pasos = [
+        ['label' => 'Solicitada',   'icon' => '📝', 'desc' => 'Permiso enviado al sistema'],
+        ['label' => 'Coordinador',  'icon' => '👨‍💼', 'desc' => 'En revisión del coordinador'],
+        ['label' => 'Gerente',      'icon' => '🏢', 'desc' => 'En revisión del gerente'],
+        ['label' => 'Aprobada',     'icon' => '✅', 'desc' => 'Permiso aprobado'],
+        ['label' => 'Finalizada',   'icon' => '🏁', 'desc' => 'Regreso registrado'],
+    ];
+} else {
+    $tracker_pasos = [
+        ['label' => 'Solicitada',   'icon' => '📝', 'desc' => 'Permiso enviado al sistema'],
+        ['label' => 'Gerente',      'icon' => '🏢', 'desc' => 'En revisión del gerente'],
+        ['label' => 'Aprobada',     'icon' => '✅', 'desc' => 'Permiso aprobado'],
+        ['label' => 'Finalizada',   'icon' => '🏁', 'desc' => 'Regreso registrado'],
+    ];
+}
+
+$estadoPermiso = $permiso['estado'];
+$asignadoA     = $permiso['asignado_a'] ?? '';
+
+// Calcular qué paso está activo (0 = primer paso)
+if ($estadoPermiso === 'finalizado') {
+    $tracker_paso_actual = count($tracker_pasos) - 1;
+    $tracker_modo        = 'done';
+} elseif ($estadoPermiso === 'aprobado') {
+    $tracker_paso_actual = count($tracker_pasos) - 2;
+    $tracker_modo        = 'done';
+} elseif ($estadoPermiso === 'rechazado') {
+    if ($incluyeCoordinador) {
+        $tracker_paso_actual = ($asignadoA === 'coordinador' || $asignadoA === 'auxiliar') ? 1 : 2;
+    } else {
+        $tracker_paso_actual = 1;
+    }
+    $tracker_modo = 'error';
+} elseif ($estadoPermiso === 'cancelado') {
+    $tracker_paso_actual = 0;
+    $tracker_modo        = 'cancelled';
+} elseif (in_array($estadoPermiso, ['pendiente', 'reenviado'])) {
+    if ($incluyeCoordinador) {
+        $tracker_paso_actual = ($asignadoA === 'gerente') ? 2 : 1;
+    } else {
+        $tracker_paso_actual = 1;
+    }
+    $tracker_modo = ($estadoPermiso === 'reenviado') ? 'reenviado' : 'active';
+} else {
+    $tracker_paso_actual = 0;
+    $tracker_modo        = 'active';
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Detalles del Permiso</title>
+    <title>Detalles del Permiso #<?= htmlspecialchars($permiso['id_permiso']) ?></title>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            font-family: Arial, sans-serif;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f9;
+            font-family: 'Segoe UI', Arial, sans-serif;
             display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
+            height: 100vh;
+            background: #f0f2f5;
+            overflow: hidden;
         }
-        .container {
-            background-color: #fff;
-            border-radius: 8px;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            padding: 25px;
-            max-width: 600px;
-            width: 100%;
+
+        /* ── SIDEBAR ── */
+        .sidebar {
+            width: 240px;
+            background: linear-gradient(180deg, #1a2535 0%, #2c3e50 100%);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+            box-shadow: 3px 0 15px rgba(0,0,0,0.3);
         }
-        h1 {
-            font-size: 24px;
-            color: #333;
-            margin-bottom: 20px;
-            text-align: center;
-            border-bottom: 2px solid #007bff;
-            padding-bottom: 10px;
-        }
-        .info-section {
-            background-color: #f8f9fa;
-            padding: 15px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            border-left: 4px solid #007bff;
-        }
-        .tiempo-ausencia {
-            background-color: #e8f4fd;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border-left: 4px solid #17a2b8;
+        .sidebar-brand {
+            padding: 24px 20px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
             text-align: center;
         }
-        .tiempo-ausencia h3 {
-            color: #17a2b8;
-            margin: 0 0 15px 0;
-            font-size: 18px;
+        .sidebar-brand .brand-icon {
+            width: 48px; height: 48px;
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            border-radius: 12px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 22px;
+            margin: 0 auto 10px;
+            box-shadow: 0 4px 12px rgba(243,156,18,0.4);
         }
-        .tiempo-valor {
-            font-size: 28px;
-            font-weight: bold;
-            color: #17a2b8;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.1);
-        }
-        .rechazo-section {
-            background-color: #fff3cd;
-            padding: 20px;
-            border-radius: 8px;
-            margin-bottom: 20px;
-            border-left: 4px solid #ffc107;
-        }
-        p {
-            margin: 10px 0;
-            font-size: 14px;
-        }
-        .label {
-            font-weight: bold;
-            color: #495057;
-            display: inline-block;
-            min-width: 120px;
-        }
-        .btn {
-            display: inline-block;
-            padding: 10px 15px;
+        .sidebar-brand h2 {
             color: #fff;
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+        .sidebar-user {
+            padding: 16px 20px;
+            border-bottom: 1px solid rgba(255,255,255,0.08);
+        }
+        .sidebar-user .user-name {
+            color: #fff;
+            font-size: 13px;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .sidebar-user .user-role {
+            color: #f39c12;
+            font-size: 11px;
+            margin-top: 2px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .sidebar-nav {
+            flex: 1;
+            padding: 16px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        .nav-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #adb5bd;
             text-decoration: none;
-            border-radius: 4px;
-            margin: 5px;
+            padding: 11px 14px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        .nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .nav-item .nav-icon { font-size: 18px; width: 22px; text-align: center; }
+        .sidebar-logout {
+            padding: 12px;
+            border-top: 1px solid rgba(255,255,255,0.08);
+        }
+        .sidebar-logout a {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #e74c3c;
+            text-decoration: none;
+            padding: 10px 14px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .sidebar-logout a:hover { background: rgba(231,76,60,0.15); }
+
+        /* ── CONTENT ── */
+        .content {
+            flex: 1;
+            overflow-y: auto;
+            padding: 28px 32px;
+        }
+
+        /* ── PAGE HEADER ── */
+        .page-header {
             text-align: center;
+            margin-bottom: 28px;
+        }
+        .page-header h1 {
+            font-size: 22px;
+            color: #1a2535;
+            font-weight: 700;
+        }
+        .page-header .sub {
+            color: #6c757d;
+            font-size: 13px;
+            margin-top: 4px;
+        }
+
+        /* ── CARDS ── */
+        .card {
+            background: #fff;
+            border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.07);
+            padding: 0;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 16px 22px;
+            border-bottom: 1px solid #f0f2f5;
+            background: #fafbfc;
+        }
+        .card-header-icon {
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            flex-shrink: 0;
+        }
+        .card-header-icon.blue   { background: #e8f0fe; }
+        .card-header-icon.orange { background: #fff3e0; }
+        .card-header-text { font-size: 14px; font-weight: 700; color: #1a2535; }
+        .card-header-sub  { font-size: 11px; color: #9ca3af; margin-top: 1px; }
+        .card-body { padding: 18px 22px; }
+        .card-title {
             font-size: 14px;
-            cursor: pointer;
-            border: none;
-        }
-        .btn-back {
-            background-color: #007bff;
-        }
-        .btn-back:hover {
-            background-color: #0056b3;
-        }
-        .btn-approve {
-            background-color: #28a745;
-        }
-        .btn-approve:hover {
-            background-color: #218838;
-        }
-        .btn-reject {
-            background-color: #dc3545;
-        }
-        .btn-reject:hover {
-            background-color: #c82333;
-        }
-        .btn-cancel {
-            background-color: #6c757d;
-        }
-        .btn-cancel:hover {
-            background-color: #5a6268;
-        }
-        textarea {
-            width: 100%;
-            padding: 10px;
-            margin: 10px 0;
-            border: 1px solid #ced4da;
-            border-radius: 4px;
-            resize: vertical;
-            font-size: 14px;
-            box-sizing: border-box;
-        }
-        .loading {
-            opacity: 0.6;
-            pointer-events: none;
-        }
-        .success-message {
-            background-color: #d4edda;
-            color: #155724;
-            padding: 15px;
-            border-radius: 4px;
-            margin: 10px 0;
-            border: 1px solid #c3e6cb;
-        }
-        .error-message {
-            background-color: #f8d7da;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 4px;
-            margin: 10px 0;
-            border: 1px solid #f5c6cb;
-        }
-        .actions-section {
-            background-color: #f8f9fa;
-            padding: 20px;
-            border-radius: 8px;
-            margin-top: 20px;
-        }
-        .motivo-rechazo {
-            background-color: #f8d7da;
-            color: #721c24;
-            padding: 15px;
-            border-radius: 5px;
-            margin: 15px 0;
-            border-left: 4px solid #dc3545;
-        }
-        #rechazo-container {
-            background-color: #fff;
-            padding: 15px;
-            border-radius: 5px;
-            border: 1px solid #dee2e6;
-            margin-top: 10px;
-        }
-        .motivo-rechazo-container {
-            background-color: #fff3cd;
-            border: 1px solid #ffeaa7;
-            border-radius: 8px;
-            padding: 20px;
-            margin-top: 15px;
-            border-left: 4px solid #ffc107;
-        }
-        .motivo-rechazo-container h4 {
-            color: #856404;
-            margin: 0 0 15px 0;
+            font-weight: 700;
+            color: #1a2535;
+            margin-bottom: 16px;
             display: flex;
             align-items: center;
             gap: 8px;
         }
-        .motivo-rechazo-container .required-text {
-            font-size: 13px;
-            color: #6c757d;
-            margin-bottom: 10px;
-            font-style: italic;
-        }
-        .textarea-container {
-            position: relative;
-        }
-        .char-counter {
-            position: absolute;
-            bottom: 5px;
-            right: 10px;
-            font-size: 11px;
-            color: #6c757d;
-            background: rgba(255,255,255,0.8);
-            padding: 2px 6px;
-            border-radius: 3px;
-        }
-        .btn-rechazar-final {
-            width: 100%;
-            margin-top: 10px;
-            padding: 12px;
-            font-size: 16px;
-            font-weight: bold;
-        }
-        .hora-formato {
-            font-weight: bold;
-            color: #17a2b8;
-        }
-        /* Eliminar estilos del botón superior */
-        .btn-volver-panel {
-            display: none; /* Ocultar completamente */
-        }
-        
-        /* Simplificar header sin botón */
-        .header-container {
+
+        /* ── TWO-COLUMN INFO GRID ── */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
             margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 2px solid #dee2e6;
+        }
+        .info-grid .card { margin-bottom: 0; }
+
+        /* ── DETAIL ROWS ── */
+        .detail-row {
+            display: flex;
+            align-items: center;
+            padding: 9px 0;
+            border-bottom: 1px solid #f5f6f8;
+            gap: 14px;
+        }
+        .detail-row:last-child { border-bottom: none; }
+        .detail-label {
+            color: #9ca3af;
+            font-size: 10.5px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            min-width: 110px;
+            flex-shrink: 0;
+            padding-top: 2px;
+        }
+        .detail-value {
+            color: #1a2535;
+            font-size: 14px;
+            font-weight: 500;
+            word-break: break-word;
+            flex: 1;
+        }
+        .hora-val { color: #f39c12; font-weight: 700; }
+
+        /* ── BADGES ── */
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: capitalize;
+        }
+        .badge-pendiente  { background: #fff3cd; color: #856404; }
+        .badge-aprobado   { background: #d1e7dd; color: #0a3622; }
+        .badge-rechazado  { background: #f8d7da; color: #842029; }
+        .badge-reenviado  { background: #cff4fc; color: #055160; }
+        .badge-cancelado  { background: #e2e3e5; color: #41464b; }
+        .badge-finalizado { background: #d3d3d3; color: #383838; }
+
+        /* ── FECHAS VISUAL ── */
+        .fechas-grid {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 0;
+            align-items: center;
+        }
+        .fecha-col {
+            text-align: center;
+            padding: 10px 8px;
+        }
+        .fecha-col-label {
+            font-size: 10px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-bottom: 10px;
+        }
+        .fecha-col-label.salida  { color: #f39c12; }
+        .fecha-col-label.regreso { color: #10b981; }
+        .fecha-icon-wrap {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            margin: 0 auto 10px;
+        }
+        .fecha-icon-wrap.salida  { background: #fff8ec; }
+        .fecha-icon-wrap.regreso { background: #ecfdf5; }
+        .fecha-date {
+            font-size: 15px;
+            font-weight: 700;
+            color: #1a2535;
+            margin-bottom: 4px;
+        }
+        .fecha-time {
+            font-size: 18px;
+            font-weight: 800;
+        }
+        .fecha-time.salida  { color: #f39c12; }
+        .fecha-time.regreso { color: #10b981; }
+        .fechas-arrow {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 0 6px;
+        }
+        .fechas-arrow-line {
+            width: 40px;
+            height: 2px;
+            background: linear-gradient(90deg, #f39c12, #10b981);
+            border-radius: 2px;
+        }
+        .fechas-arrow-tip {
+            font-size: 14px;
+            color: #9ca3af;
+        }
+
+        /* ── TIEMPO AUSENCIA ── */
+        .tiempo-card {
+            background: linear-gradient(135deg, #fffaf0 0%, #fff3e0 100%);
+            border-radius: 16px;
+            border: 1.5px solid #f8c86a;
+            padding: 22px 24px;
+            margin-bottom: 20px;
             text-align: center;
         }
-        
-        .header-container h1 {
+        .tiempo-card .card-title { justify-content: center; color: #e67e22; }
+        .tiempo-inner {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 24px;
+            padding: 6px 0 4px;
+        }
+        .tiempo-bloque {
+            text-align: center;
+        }
+        .tiempo-num {
+            font-size: 42px;
+            font-weight: 900;
+            color: #e67e22;
+            line-height: 1;
+            letter-spacing: -1px;
+        }
+        .tiempo-unit {
+            font-size: 12px;
+            font-weight: 700;
+            color: #f39c12;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+        .tiempo-sep {
+            font-size: 36px;
+            font-weight: 900;
+            color: #f8c86a;
+            line-height: 1;
+            margin-bottom: 14px;
+        }
+        .tiempo-valor {
+            font-size: 34px;
+            font-weight: 800;
+            color: #e67e22;
+            margin-top: 2px;
+        }
+
+        /* ── RECHAZO CARD ── */
+        .rechazo-card {
+            background: #fff5f5;
+            border-radius: 14px;
+            border: 1.5px solid #f8d7da;
+            padding: 20px 24px;
+            margin-bottom: 20px;
+        }
+        .rechazo-card .card-title { color: #842029; }
+        .rechazo-text {
+            color: #721c24;
+            font-size: 14px;
+            font-style: italic;
+            line-height: 1.7;
             margin: 0;
-            font-size: 24px;
-            color: #333;
-            border-bottom: 2px solid #007bff;
-            padding-bottom: 10px;
-            display: inline-block;
+        }
+
+        /* ── ACTIONS CARD ── */
+        .actions-card {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            padding: 22px 24px;
+            margin-bottom: 20px;
+        }
+
+        /* ── ENCARGADO BOX ── */
+        .encargado-box {
+            background: #f0f8ff;
+            border-radius: 12px;
+            border: 1.5px solid #b8d9f5;
+            padding: 16px 20px;
+            margin-bottom: 20px;
+        }
+        .encargado-box .box-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: #1565c0;
+            margin-bottom: 8px;
+        }
+        .encargado-box p {
+            font-size: 13px;
+            color: #495057;
+            margin-bottom: 10px;
+        }
+
+        /* ── FORM ── */
+        .form-group { margin-bottom: 16px; }
+        .form-label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #495057;
+            margin-bottom: 6px;
+        }
+        .form-control {
+            width: 100%;
+            padding: 10px 14px;
+            border: 1.5px solid #dee2e6;
+            border-radius: 10px;
+            font-size: 14px;
+            color: #1a2535;
+            background: #fff;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            box-sizing: border-box;
+            font-family: inherit;
+        }
+        .form-control:focus {
+            outline: none;
+            border-color: #f39c12;
+            box-shadow: 0 0 0 3px rgba(243,156,18,0.12);
+        }
+        textarea.form-control { resize: vertical; min-height: 100px; }
+        .form-grid-2 {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+        }
+
+        /* ── BUTTONS ── */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            padding: 11px 22px;
+            border-radius: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            text-decoration: none;
+            transition: all 0.2s;
+            font-family: inherit;
+        }
+        .btn:disabled { opacity: 0.6; pointer-events: none; }
+        .btn-approve {
+            background: linear-gradient(135deg, #28a745, #218838);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(40,167,69,0.3);
+        }
+        .btn-approve:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(40,167,69,0.4); }
+        .btn-reject {
+            background: linear-gradient(135deg, #dc3545, #c82333);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(220,53,69,0.3);
+        }
+        .btn-reject:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(220,53,69,0.4); }
+        .btn-resend {
+            background: linear-gradient(135deg, #17a2b8, #138496);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(23,162,184,0.3);
+        }
+        .btn-resend:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(23,162,184,0.4); }
+        .btn-finalize {
+            background: linear-gradient(135deg, #0d9488, #0f766e);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(13,148,136,0.3);
+            font-size: 14px;
+            padding: 10px 22px;
+        }
+        .btn-finalize:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(13,148,136,0.4); }
+        .regreso-box {
+            margin-top: 18px;
+            border-top: 1px solid #e9ecef;
+            padding-top: 18px;
+        }
+        .regreso-info {
+            background: #f0fdf4;
+            border: 1px solid #a7f3d0;
+            border-radius: 10px;
+            padding: 16px 18px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 13px;
+            margin-top: 10px;
+        }
+        .regreso-info .ri-label { color: #6c757d; margin-bottom: 2px; font-size: 12px; }
+        .regreso-info .ri-value { font-weight: 700; color: #065f46; font-size: 14px; }
+        .regreso-info .ri-full  { grid-column: 1 / -1; }
+        .btn-cancel-perm {
+            background: linear-gradient(135deg, #6c757d, #545b62);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(108,117,125,0.3);
+        }
+        .btn-cancel-perm:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(108,117,125,0.4); }
+        .btn-save {
+            background: linear-gradient(135deg, #f39c12, #e67e22);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(243,156,18,0.3);
+        }
+        .btn-save:hover { transform: translateY(-2px); box-shadow: 0 6px 18px rgba(243,156,18,0.4); }
+
+        .btn-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 8px;
+        }
+
+        /* ── STATUS INFO (estados finales) ── */
+        .status-info {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            padding: 6px 0 4px;
+        }
+        .status-icon { font-size: 34px; }
+        .status-text .s-title { font-size: 16px; font-weight: 700; color: #1a2535; }
+        .status-text .s-sub   { font-size: 13px; color: #6c757d; margin-top: 3px; }
+
+        /* ── TRACKER DE PROGRESO ── */
+        .tracker-wrap {
+            background: #fff;
+            border-radius: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            padding: 24px 32px 20px;
+            margin-bottom: 20px;
+        }
+        .tracker-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            color: #9ca3af;
+            margin-bottom: 20px;
+        }
+        .tracker {
+            display: flex;
+            align-items: flex-start;
+            position: relative;
+        }
+        .tracker-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+            position: relative;
+            z-index: 1;
+        }
+        /* línea entre pasos */
+        .tracker-step:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            width: 100%;
+            height: 3px;
+            background: #e9ecef;
+            z-index: 0;
+            transition: background 0.4s;
+        }
+        .tracker-step.done:not(:last-child)::after,
+        .tracker-step.prev-done:not(:last-child)::after {
+            background: linear-gradient(90deg, #10b981, #10b981);
+        }
+        /* círculo del paso */
+        .tracker-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 17px;
+            font-weight: 700;
+            border: 3px solid #e9ecef;
+            background: #f8f9fa;
+            color: #adb5bd;
+            position: relative;
+            z-index: 2;
+            transition: all 0.3s;
+            flex-shrink: 0;
+        }
+        .tracker-step.done .tracker-circle {
+            background: #10b981;
+            border-color: #10b981;
+            color: #fff;
+            box-shadow: 0 0 0 4px rgba(16,185,129,0.15);
+        }
+        .tracker-step.active .tracker-circle {
+            background: #fff;
+            border-color: #f39c12;
+            color: #f39c12;
+            box-shadow: 0 0 0 4px rgba(243,156,18,0.18);
+            animation: pulse-ring 1.8s ease-in-out infinite;
+        }
+        .tracker-step.error .tracker-circle {
+            background: #ef4444;
+            border-color: #ef4444;
+            color: #fff;
+            box-shadow: 0 0 0 4px rgba(239,68,68,0.15);
+        }
+        .tracker-step.reenviado .tracker-circle {
+            background: #fff;
+            border-color: #3b82f6;
+            color: #3b82f6;
+            box-shadow: 0 0 0 4px rgba(59,130,246,0.15);
+            animation: pulse-ring-blue 1.8s ease-in-out infinite;
+        }
+        .tracker-step.cancelled .tracker-circle {
+            background: #6c757d;
+            border-color: #6c757d;
+            color: #fff;
+        }
+        /* etiqueta */
+        .tracker-label {
+            font-size: 11px;
+            font-weight: 700;
+            color: #adb5bd;
+            margin-top: 8px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+        }
+        .tracker-step.done .tracker-label    { color: #059669; }
+        .tracker-step.active .tracker-label  { color: #d97706; }
+        .tracker-step.error .tracker-label   { color: #ef4444; }
+        .tracker-step.reenviado .tracker-label { color: #3b82f6; }
+        .tracker-step.cancelled .tracker-label { color: #6c757d; }
+        /* descripción debajo */
+        .tracker-desc {
+            font-size: 10px;
+            color: #9ca3af;
+            margin-top: 3px;
+            text-align: center;
+            max-width: 90px;
+            line-height: 1.3;
+        }
+        .tracker-step.active .tracker-desc  { color: #f39c12; font-weight: 600; }
+        .tracker-step.error .tracker-desc   { color: #ef4444; }
+        .tracker-step.reenviado .tracker-desc { color: #3b82f6; font-weight: 600; }
+        /* banner de estado debajo del tracker */
+        .tracker-banner {
+            margin-top: 16px;
+            padding: 10px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            gap: 8px;
+        }
+        .tracker-banner.active   { background: #fff8ec; color: #92400e; border: 1px solid #fcd97a; }
+        .tracker-banner.done     { background: #ecfdf5; color: #065f46; border: 1px solid #a7f3d0; }
+        .tracker-banner.error    { background: #fef2f2; color: #991b1b; border: 1px solid #fca5a5; }
+        .tracker-banner.reenviado{ background: #eff6ff; color: #1e40af; border: 1px solid #bfdbfe; }
+        .tracker-banner.cancelled{ background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+
+        @keyframes pulse-ring {
+            0%   { box-shadow: 0 0 0 0   rgba(243,156,18,0.4); }
+            70%  { box-shadow: 0 0 0 8px rgba(243,156,18,0); }
+            100% { box-shadow: 0 0 0 0   rgba(243,156,18,0); }
+        }
+        @keyframes pulse-ring-blue {
+            0%   { box-shadow: 0 0 0 0   rgba(59,130,246,0.4); }
+            70%  { box-shadow: 0 0 0 8px rgba(59,130,246,0); }
+            100% { box-shadow: 0 0 0 0   rgba(59,130,246,0); }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <!-- Header simplificado solo con título -->
-        <div class="header-container">
-            <h1>📄 Detalles del Permiso #<?= htmlspecialchars($permiso['id_permiso']) ?></h1>
-        </div>
-        
-        <div class="info-section">
-            <p><span class="label">👤 Empleado:</span> <?= htmlspecialchars($permiso['nombre_empleado']) ?></p>
-            <p><span class="label">🏢 Área:</span> <?= htmlspecialchars($permiso['area']) ?></p>
-            <p><span class="label">💼 Cargo:</span> <?= htmlspecialchars($permiso['cargo']) ?></p>
-            <p><span class="label">📝 Tipo:</span> <?= htmlspecialchars($permiso['tipo_permiso']) ?></p>
-            <p><span class="label">📊 Estado:</span> <strong><?= ucfirst(htmlspecialchars($permiso['estado'])) ?></strong></p>
-            <p><span class="label">👨‍💼 Encargado en ausencia:</span> <?= htmlspecialchars($permiso['encargado_ausencia'] ?? 'No especificado') ?></p>
-        </div>
 
-        <div class="info-section">
-            <p><span class="label">💬 Motivo:</span> <?= htmlspecialchars($permiso['motivo']) ?></p>
-            <p><span class="label">📅 Fecha Salida:</span> <?= date('d/m/Y', strtotime($permiso['fecha_salida'])) ?></p>
-            <p><span class="label">🕐 Hora Salida:</span> <span class="hora-formato"><?= formatearHoraAMPM($permiso['hora_salida']) ?></span></p>
-            <p><span class="label">📅 Fecha Aprox. Regreso:</span> <?= date('d/m/Y', strtotime($permiso['fecha_regreso_aprox'])) ?></p>
-            <p><span class="label">🕐 Hora Aprox. Regreso:</span> <span class="hora-formato"><?= formatearHoraAMPM($permiso['hora_regreso_aprox']) ?></span></p>
-        </div>
+<!-- SIDEBAR -->
+<div class="sidebar">
+    <div class="sidebar-brand">
+        <div class="brand-icon">📋</div>
+        <h2>Coosanandresito</h2>
+    </div>
+    <div class="sidebar-user">
+        <div class="user-name"><?= htmlspecialchars($_SESSION['nombre']) ?></div>
+        <div class="user-role"><?= htmlspecialchars(ucfirst($cargo)) ?></div>
+    </div>
+    <nav class="sidebar-nav">
+        <?php foreach ($navItems as $item): ?>
+        <a href="<?= htmlspecialchars($item['href']) ?>" class="nav-item">
+            <span class="nav-icon"><?= $item['icon'] ?></span> <?= htmlspecialchars($item['label']) ?>
+        </a>
+        <?php endforeach; ?>
+    </nav>
+    <div class="sidebar-logout">
+        <a href="logout.php"><span style="font-size:16px;">🚪</span> Cerrar Sesión</a>
+    </div>
+</div>
 
-        <!-- Mostrar tiempo de ausencia -->
-        <div class="tiempo-ausencia">
-            <h3>⏰ Tiempo aproximado de Ausencia en Horario Laboral</h3>
-            <div class="tiempo-valor">
-                <?= $horasAusencia ?> horas y <?= $minutosAusencia ?> minutos
+<!-- CONTENT -->
+<div class="content">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+        <h1>📄 Detalles del Permiso #<?= htmlspecialchars($permiso['id_permiso']) ?></h1>
+        <div class="sub">Información completa del permiso de ausencia</div>
+    </div>
+
+    <!-- TRACKER DE PROGRESO -->
+    <?php
+    $bannerMsg = match(true) {
+        $tracker_modo === 'active' && $estadoPermiso === 'pendiente' =>
+            '⏳ Tu solicitud está siendo revisada. Te notificaremos cuando haya novedades.',
+        $tracker_modo === 'reenviado' =>
+            '🔄 Solicitud reenviada — en espera de nueva revisión.',
+        $tracker_modo === 'done' && $estadoPermiso === 'aprobado' =>
+            '✅ ¡Tu permiso fue aprobado! Recuerda registrar tu regreso al finalizar.',
+        $tracker_modo === 'done' && $estadoPermiso === 'finalizado' =>
+            '🏁 Proceso completado. El permiso ha sido cerrado exitosamente.',
+        $tracker_modo === 'error' =>
+            '❌ Tu solicitud fue rechazada. Puedes corregirla y reenviarla desde esta misma página.',
+        $tracker_modo === 'cancelled' =>
+            '🚫 Esta solicitud fue cancelada definitivamente.',
+        default => '',
+    };
+    ?>
+    <div class="tracker-wrap">
+        <div class="tracker-title">Estado de tu solicitud</div>
+        <div class="tracker">
+            <?php foreach ($tracker_pasos as $i => $paso):
+                if ($i < $tracker_paso_actual) {
+                    $cls = 'done';
+                } elseif ($i === $tracker_paso_actual) {
+                    $cls = $tracker_modo === 'done' ? 'done' : $tracker_modo;
+                } else {
+                    $cls = 'pending';
+                }
+                // Añadir clase extra a los pasos anteriores completados para que la línea se pinte
+                $extraCls = ($i < $tracker_paso_actual) ? ' prev-done' : '';
+            ?>
+            <div class="tracker-step <?= $cls . $extraCls ?>">
+                <div class="tracker-circle">
+                    <?php if ($cls === 'done'): ?>✓
+                    <?php elseif ($cls === 'error'): ?>✕
+                    <?php elseif ($cls === 'cancelled'): ?>✕
+                    <?php else: ?><?= $paso['icon'] ?>
+                    <?php endif; ?>
+                </div>
+                <div class="tracker-label"><?= $paso['label'] ?></div>
+                <?php if ($i === $tracker_paso_actual): ?>
+                <div class="tracker-desc"><?= $paso['desc'] ?></div>
+                <?php endif; ?>
             </div>
+            <?php endforeach; ?>
         </div>
-
-        <?php if ($permiso['estado'] === 'rechazado' && !empty($permiso['motivo_rechazo'])): ?>
-            <div class="motivo-rechazo">
-                <h3 style="margin: 0 0 10px 0; color: #721c24;">❌ Motivo del Rechazo</h3>
-                <p style="margin: 0; color: #721c24; font-style: italic;"><?= htmlspecialchars($permiso['motivo_rechazo']) ?></p>
-            </div>
+        <?php if ($bannerMsg): ?>
+        <div class="tracker-banner <?= $tracker_modo ?>">
+            <?= $bannerMsg ?>
+        </div>
         <?php endif; ?>
+    </div>
 
-        <div id="mensaje-container"></div>
+    <!-- INFO GRID: empleado + fechas -->
+    <div class="info-grid">
 
-        <?php if (in_array($permiso['estado'], ['pendiente', 'reenviado']) && $permiso['asignado_a'] === 'gerente'): ?>
-            <div class="actions-section">
-                <form id="formAccion">
-                    <input type="hidden" name="id_permiso" value="<?= $permiso['id_permiso'] ?>">
-
-                    <!-- CAMPO EDITABLE PARA GERENTE: Persona Encargada (solo para admin/coord/administrativo) -->
-                    <?php if ($puedeEditarEncargado): ?>
-                    <div style="background-color: #e8f4fd; padding: 15px; border-radius: 8px; margin-bottom: 15px; border-left: 4px solid #17a2b8;">
-                        <h4 style="color: #17a2b8; margin: 0 0 10px 0;">👨‍💼 Asignar Persona Encargada</h4>
-                        <p style="color: #495057; font-size: 13px; margin-bottom: 10px;">
-                            Como gerente, puedes asignar quién estará encargado durante la ausencia de este empleado.
-                        </p>
-                        <label for="encargado_ausencia_gerente" style="font-weight: bold; margin-bottom: 5px; display: block;">
-                            Persona Encargada en Ausencia:
-                        </label>
-                        <input type="text" 
-                               id="encargado_ausencia_gerente" 
-                               name="encargado_ausencia" 
-                               value="<?= htmlspecialchars($permiso['encargado_ausencia'] ?? '') ?>"
-                               placeholder="Nombre completo de la persona encargada"
-                               style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box;">
-                        <small style="color: #6c757d; font-style: italic;">
-                            Este campo es opcional. Déjalo vacío si no aplica.
-                        </small>
-                    </div>
-                    <?php endif; ?>
-
-                    <?php if ($permiso['estado'] === 'pendiente'): ?>
-                        <!-- PENDIENTE: mostrar Aprobar, Rechazar (con motivo obligatorio) y Volver -->
-                        <div id="rechazo-container">
-                            <label for="motivo_rechazo">Motivo del rechazo <span style="color:#dc3545">*</span></label>
-                            <textarea id="motivo_rechazo" name="motivo_rechazo" rows="4" required placeholder="Explica detalladamente por qué rechazas este permiso..."></textarea>
-                        </div>
-
-                        <div style="margin-top:10px;">
-                            <button type="button" onclick="procesarAccion('aprobar')" class="btn btn-approve">✅ Aprobar</button>
-                            <button type="button" onclick="procesarAccion('rechazar')" class="btn btn-reject">❌ Rechazar (con motivo)</button>
-                            <button type="button" onclick="window.location.href='<?= $panelRegreso ?>'" class="btn btn-back">← Volver al <?= $nombrePanel ?></button>
-                        </div>
-
-                    <?php else: /* reenviado */ ?>
-                        <!-- REENVIADO: permitir Aprobar, Cancelar definitivamente y Volver -->
-                        <div style="margin-top:10px;">
-                            <button type="button" onclick="procesarAccion('aprobar')" class="btn btn-approve">✅ Aprobar</button>
-                            <button type="button" onclick="procesarAccion('cancelar')" class="btn btn-cancel">🚫 Cancelar Definitivamente</button>
-                            <button type="button" onclick="window.location.href='<?= $panelRegreso ?>'" class="btn btn-back">← Volver al <?= $nombrePanel ?></button>
-                        </div>
-                    <?php endif; ?>
-                </form>
-            </div>
-        <?php elseif ($permiso['estado'] === 'rechazado' && $permiso['id_usuario'] == $_SESSION['usuario_id']): ?>
-            <!-- PERMISO RECHAZADO: mostrar opciones para corregir y reenviar -->
-            <div class="actions-section">
-                <h3 style="color: #333; margin-bottom: 15px;">🔄 Permiso Rechazado - Opciones Disponibles</h3>
-                <p style="color: #666; margin-bottom: 15px;">
-                    Tu permiso ha sido rechazado. Puedes corregir los campos y reenviarlo.
-                </p>
-                
-                <!-- Formulario para actualizar campos -->
-                <div id="editar-container" style="background-color: #f8f9fa; padding: 20px; border-radius: 8px; margin-bottom: 15px;">
-                    <h4 style="color: #495057; margin-bottom: 15px;">📝 Corregir Datos del Permiso</h4>
-                    
-                    <form id="formActualizarCampos">
-                        <input type="hidden" name="id_permiso" value="<?= $permiso['id_permiso'] ?>">
-                        <input type="hidden" name="accion" value="actualizar_campos">
-                        
-                        <div style="margin-bottom: 15px;">
-                            <label for="motivo_edit" style="display: block; font-weight: bold; margin-bottom: 5px;">Motivo *</label>
-                            <textarea id="motivo_edit" name="motivo" rows="3" required 
-                                      style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box;"
-                                      placeholder="Describe el motivo de tu permiso..."><?= htmlspecialchars($permiso['motivo']) ?></textarea>
-                        </div>
-                        
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 15px;">
-                            <div>
-                                <label for="fecha_salida_edit" style="display: block; font-weight: bold; margin-bottom: 5px;">Fecha de Salida *</label>
-                                <input type="date" id="fecha_salida_edit" name="fecha_salida" required 
-                                       value="<?= $permiso['fecha_salida'] ?>"
-                                       style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box;">
-                            </div>
-                            <div>
-                                <label for="hora_salida_edit" style="display: block; font-weight: bold; margin-bottom: 5px;">Hora de Salida *</label>
-                                <input type="time" id="hora_salida_edit" name="hora_salida" required 
-                                       value="<?= $permiso['hora_salida'] ?>"
-                                       style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box;">
-                            </div>
-                        </div>
-                        
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
-                            <div>
-                                <label for="fecha_regreso_edit" style="display: block; font-weight: bold; margin-bottom: 5px;">Fecha de Regreso *</label>
-                                <input type="date" id="fecha_regreso_edit" name="fecha_regreso_aprox" required 
-                                       value="<?= $permiso['fecha_regreso_aprox'] ?>"
-                                       style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box;">
-                            </div>
-                            <div>
-                                <label for="hora_regreso_edit" style="display: block; font-weight: bold; margin-bottom: 5px;">Hora de Regreso *</label>
-                                <input type="time" id="hora_regreso_edit" name="hora_regreso_aprox" required 
-                                       value="<?= $permiso['hora_regreso_aprox'] ?>"
-                                       style="width: 100%; padding: 8px; border: 1px solid #ced4da; border-radius: 4px; box-sizing: border-box;">
-                            </div>
-                        </div>
-                        
-                        <div style="text-align: center;">
-                            <button type="button" onclick="actualizarCampos()" class="btn btn-approve" style="margin-right: 10px;">
-                                💾 Guardar Cambios
-                            </button>
-                            <button type="button" onclick="reenviarPermiso()" class="btn" style="background-color: #17a2b8; margin-right: 10px;">
-                                🔄 Reenviar <?= $esCoordinadorAdmin ? 'al Gerente' : 'al Coordinador' ?>
-                            </button>
-                            <button type="button" onclick="window.location.href='<?= $panelRegreso ?>'" class="btn btn-back">
-                                ← Volver al <?= $nombrePanel ?>
-                            </button>
-                        </div>
-                    </form>
+        <div class="card">
+            <div class="card-header">
+                <div class="card-header-icon blue">👤</div>
+                <div>
+                    <div class="card-header-text">Datos del Empleado</div>
+                    <div class="card-header-sub">Información del solicitante</div>
                 </div>
             </div>
-        <?php elseif (in_array($permiso['estado'], ['cancelado', 'rechazado', 'aprobado', 'finalizado'])): ?>
-            <!-- ESTADOS FINALES: solo mostrar botón volver -->
-            <div class="actions-section">
-                <h3 style="color: #333; margin-bottom: 15px;">ℹ️ Permiso <?= ucfirst($permiso['estado']) ?></h3>
-                <p style="color: #666; margin-bottom: 15px;">
-                    <?php if ($permiso['estado'] === 'cancelado'): ?>
-                        Este permiso ha sido cancelado definitivamente.
-                    <?php elseif ($permiso['estado'] === 'rechazado'): ?>
-                        Este permiso ha sido rechazado.
-                    <?php elseif ($permiso['estado'] === 'finalizado'): ?>
-                        Este permiso ha sido completado exitosamente.
-                    <?php else: ?>
-                        Este permiso ha sido aprobado exitosamente.
-                    <?php endif; ?>
-                </p>
-                <button type="button" onclick="window.location.href='<?= $panelRegreso ?>'" class="btn btn-back">← Volver al <?= $nombrePanel ?></button>
+            <div class="card-body">
+                <div class="detail-row">
+                    <span class="detail-label">Empleado</span>
+                    <span class="detail-value"><?= htmlspecialchars($permiso['nombre_empleado']) ?></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Área</span>
+                    <span class="detail-value"><?= htmlspecialchars($permiso['area']) ?></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Cargo</span>
+                    <span class="detail-value"><?= htmlspecialchars($permiso['cargo']) ?></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Tipo Permiso</span>
+                    <span class="detail-value"><?= htmlspecialchars($permiso['tipo_permiso']) ?></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Motivo</span>
+                    <span class="detail-value"><?= htmlspecialchars($permiso['motivo']) ?></span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Estado</span>
+                    <span class="detail-value">
+                        <span class="badge badge-<?= htmlspecialchars($permiso['estado']) ?>">
+                            <?= ucfirst(htmlspecialchars($permiso['estado'])) ?>
+                        </span>
+                    </span>
+                </div>
+                <div class="detail-row">
+                    <span class="detail-label">Encargado</span>
+                    <span class="detail-value"><?= htmlspecialchars($permiso['encargado_ausencia'] ?? 'No especificado') ?></span>
+                </div>
             </div>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div class="card-header-icon orange">📅</div>
+                <div>
+                    <div class="card-header-text">Fechas y Horario</div>
+                    <div class="card-header-sub">Salida y regreso aproximado</div>
+                </div>
+            </div>
+            <div class="card-body">
+                <div class="fechas-grid">
+                    <div class="fecha-col">
+                        <div class="fecha-col-label salida">Salida</div>
+                        <div class="fecha-icon-wrap salida">🚀</div>
+                        <div class="fecha-date"><?= date('d/m/Y', strtotime($permiso['fecha_salida'])) ?></div>
+                        <div class="fecha-time salida"><?= formatearHoraAMPM($permiso['hora_salida']) ?></div>
+                    </div>
+                    <div class="fechas-arrow">
+                        <div class="fechas-arrow-line"></div>
+                        <div class="fechas-arrow-tip">→</div>
+                    </div>
+                    <div class="fecha-col">
+                        <div class="fecha-col-label regreso">Regreso</div>
+                        <div class="fecha-icon-wrap regreso">🏠</div>
+                        <div class="fecha-date"><?= date('d/m/Y', strtotime($permiso['fecha_regreso_aprox'])) ?></div>
+                        <div class="fecha-time regreso"><?= formatearHoraAMPM($permiso['hora_regreso_aprox']) ?></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- TIEMPO AUSENCIA -->
+    <div class="tiempo-card">
+        <div class="card-title">⏰ Tiempo Aproximado de Ausencia en Horario Laboral</div>
+        <div class="tiempo-inner">
+            <div class="tiempo-bloque">
+                <div class="tiempo-num"><?= $horasAusencia ?></div>
+                <div class="tiempo-unit">horas</div>
+            </div>
+            <div class="tiempo-sep">:</div>
+            <div class="tiempo-bloque">
+                <div class="tiempo-num"><?= str_pad($minutosAusencia, 2, '0', STR_PAD_LEFT) ?></div>
+                <div class="tiempo-unit">minutos</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MOTIVO RECHAZO -->
+    <?php if ($permiso['estado'] === 'rechazado' && !empty($permiso['motivo_rechazo'])): ?>
+    <div class="rechazo-card">
+        <div class="card-title">❌ Motivo del Rechazo</div>
+        <p class="rechazo-text"><?= htmlspecialchars($permiso['motivo_rechazo']) ?></p>
+    </div>
+    <?php endif; ?>
+
+    <!-- ── ACCIONES ── -->
+
+    <?php if ($esGerente && in_array($permiso['estado'], ['pendiente', 'reenviado']) && $permiso['asignado_a'] === 'gerente'): ?>
+
+    <div class="actions-card">
+        <div class="card-title">⚙️ Acciones del Gerente</div>
+
+        <form id="formAccion">
+            <input type="hidden" name="id_permiso" value="<?= $permiso['id_permiso'] ?>">
+
+            <?php if ($puedeEditarEncargado): ?>
+            <div class="encargado-box">
+                <div class="box-title">👨‍💼 Asignar Persona Encargada</div>
+                <p>Como gerente, puedes asignar quién estará encargado durante la ausencia de este empleado.</p>
+                <div class="form-group" style="margin-bottom:0;">
+                    <label for="encargado_ausencia_gerente" class="form-label">Persona Encargada en Ausencia</label>
+                    <input type="text"
+                           id="encargado_ausencia_gerente"
+                           name="encargado_ausencia"
+                           class="form-control"
+                           value="<?= htmlspecialchars($permiso['encargado_ausencia'] ?? '') ?>"
+                           placeholder="Nombre completo de la persona encargada">
+                    <small style="color:#6c757d;font-style:italic;font-size:12px;margin-top:4px;display:block;">
+                        Campo opcional. Déjalo vacío si no aplica.
+                    </small>
+                </div>
+            </div>
+            <?php endif; ?>
+
+            <?php if ($permiso['estado'] === 'pendiente'): ?>
+                <div class="form-group">
+                    <label for="motivo_rechazo" class="form-label">
+                        Motivo del rechazo <span style="color:#dc3545">*</span>
+                        <span style="font-weight:400;color:#6c757d;">(requerido solo para rechazar)</span>
+                    </label>
+                    <textarea id="motivo_rechazo" name="motivo_rechazo" class="form-control"
+                              placeholder="Explica detalladamente por qué rechazas este permiso..."></textarea>
+                </div>
+                <div class="btn-row">
+                    <button type="button" onclick="procesarAccion('aprobar')" class="btn btn-approve">✅ Aprobar</button>
+                    <button type="button" onclick="procesarAccion('rechazar')" class="btn btn-reject">❌ Rechazar</button>
+                </div>
+            <?php else: ?>
+                <div class="btn-row">
+                    <button type="button" onclick="procesarAccion('aprobar')" class="btn btn-approve">✅ Aprobar</button>
+                    <button type="button" onclick="procesarAccion('cancelar')" class="btn btn-cancel-perm">🚫 Cancelar Definitivamente</button>
+                </div>
+            <?php endif; ?>
+        </form>
+    </div>
+
+    <?php elseif ($permiso['estado'] === 'rechazado' && $permiso['id_usuario'] == $_SESSION['usuario_id']): ?>
+
+    <div class="actions-card">
+        <div class="card-title">🔄 Corregir y Reenviar Permiso</div>
+        <p style="color:#6c757d;font-size:13px;margin-bottom:20px;">
+            Tu permiso fue rechazado. Corrige los datos y reenvíalo para nueva revisión.
+        </p>
+
+        <form id="formActualizarCampos">
+            <input type="hidden" name="id_permiso" value="<?= $permiso['id_permiso'] ?>">
+            <input type="hidden" name="accion" value="actualizar_campos">
+
+            <div class="form-group">
+                <label for="motivo_edit" class="form-label">Motivo <span style="color:#dc3545">*</span></label>
+                <textarea id="motivo_edit" name="motivo" class="form-control"
+                          placeholder="Describe el motivo de tu permiso..."><?= htmlspecialchars($permiso['motivo']) ?></textarea>
+            </div>
+
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label for="fecha_salida_edit" class="form-label">Fecha de Salida <span style="color:#dc3545">*</span></label>
+                    <input type="date" id="fecha_salida_edit" name="fecha_salida"
+                           class="form-control" value="<?= $permiso['fecha_salida'] ?>">
+                </div>
+                <div class="form-group">
+                    <label for="hora_salida_edit" class="form-label">Hora de Salida <span style="color:#dc3545">*</span></label>
+                    <input type="time" id="hora_salida_edit" name="hora_salida"
+                           class="form-control" value="<?= $permiso['hora_salida'] ?>">
+                </div>
+            </div>
+
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label for="fecha_regreso_edit" class="form-label">Fecha de Regreso <span style="color:#dc3545">*</span></label>
+                    <input type="date" id="fecha_regreso_edit" name="fecha_regreso_aprox"
+                           class="form-control" value="<?= $permiso['fecha_regreso_aprox'] ?>">
+                </div>
+                <div class="form-group">
+                    <label for="hora_regreso_edit" class="form-label">Hora de Regreso <span style="color:#dc3545">*</span></label>
+                    <input type="time" id="hora_regreso_edit" name="hora_regreso_aprox"
+                           class="form-control" value="<?= $permiso['hora_regreso_aprox'] ?>">
+                </div>
+            </div>
+
+            <div class="btn-row">
+                <button type="button" onclick="actualizarCampos()" class="btn btn-save">💾 Guardar Cambios</button>
+                <button type="button" onclick="reenviarPermiso()" class="btn btn-resend">
+                    🔄 Reenviar <?= $esCoordinadorAdmin ? 'al Gerente' : 'al Coordinador' ?>
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <?php elseif (in_array($permiso['estado'], ['cancelado', 'rechazado', 'aprobado', 'finalizado'])): ?>
+
+    <div class="actions-card">
+        <div class="status-info">
+            <?php
+            $iconoEstado = match ($permiso['estado']) {
+                'aprobado'   => '✅',
+                'rechazado'  => '❌',
+                'cancelado'  => '🚫',
+                'finalizado' => '🏁',
+                default      => 'ℹ️',
+            };
+            $textoEstado = match ($permiso['estado']) {
+                'aprobado'   => 'Este permiso fue aprobado exitosamente.',
+                'rechazado'  => 'Este permiso fue rechazado.',
+                'cancelado'  => 'Este permiso fue cancelado definitivamente.',
+                'finalizado' => 'Este permiso ha sido completado.',
+                default      => '',
+            };
+            ?>
+            <div class="status-icon"><?= $iconoEstado ?></div>
+            <div class="status-text">
+                <div class="s-title">Permiso <?= ucfirst(htmlspecialchars($permiso['estado'])) ?></div>
+                <div class="s-sub"><?= $textoEstado ?></div>
+            </div>
+        </div>
+
+        <?php if ($permiso['estado'] === 'aprobado' && $permiso['id_usuario'] == $_SESSION['usuario_id']): ?>
+        <div class="regreso-box">
+            <p style="font-size:13px;color:#6c757d;margin-bottom:14px;">
+                Cuando regreses de tu ausencia, registra tu hora de llegada para cerrar el proceso.
+            </p>
+            <button type="button" onclick="registrarRegreso()" class="btn btn-finalize">
+                📍 Registrar mi Regreso
+            </button>
+        </div>
+        <?php endif; ?>
+
+        <?php if ($permiso['estado'] === 'finalizado' && !empty($permiso['fecha_regreso_real'])): ?>
+        <div class="regreso-box">
+            <div style="font-size:13px;font-weight:700;color:#065f46;margin-bottom:8px;">📋 Regreso Registrado</div>
+            <div class="regreso-info">
+                <div>
+                    <div class="ri-label">Fecha de regreso</div>
+                    <div class="ri-value"><?= date('d/m/Y', strtotime($permiso['fecha_regreso_real'])) ?></div>
+                </div>
+                <div>
+                    <div class="ri-label">Hora de regreso</div>
+                    <div class="ri-value"><?= date('g:i A', strtotime($permiso['hora_regreso_real'])) ?></div>
+                </div>
+                <?php if (!empty($permiso['tiempo_total_ausencia'])): ?>
+                <div class="ri-full">
+                    <div class="ri-label">Tiempo total de ausencia</div>
+                    <div class="ri-value"><?= htmlspecialchars($permiso['tiempo_total_ausencia']) ?></div>
+                </div>
+                <?php endif; ?>
+            </div>
+        </div>
         <?php endif; ?>
 
     </div>
 
-    <script>
-        function mostrarRechazo() {
-            // El contenedor ya está visible, solo hacer focus en el textarea
-            document.getElementById('motivo_rechazo').focus();
-            
-            // Scroll suave hacia el contenedor de rechazo
-            document.getElementById('rechazo-container').scrollIntoView({ 
-                behavior: 'smooth', 
-                block: 'nearest' 
-            });
-        }
+    <?php endif; ?>
 
-        function actualizarContador() {
-            const textarea = document.getElementById('motivo_rechazo');
-            if (!textarea) return;
-            
-            const counter = document.getElementById('char-counter');
-            if (!counter) return;
-            
-            const length = textarea.value.length;
-            
-            counter.textContent = `${length}/500`;
-            
-            // Cambiar color según la cantidad de caracteres
-            if (length < 10) {
-                counter.style.color = '#dc3545'; // Rojo - muy poco texto
-            } else if (length < 50) {
-                counter.style.color = '#ffc107'; // Amarillo - poco texto
-            } else {
-                counter.style.color = '#28a745'; // Verde - texto adecuado
-            }
-        }
+</div><!-- .content -->
 
-        function procesarAccion(accion) {
-            const form = document.getElementById('formAccion');
-            const container = document.querySelector('.container');
-            
-            console.log('🔍 Procesando acción:', accion);
-            
-            // Validar motivo de rechazo si es necesario
-            if (accion === 'rechazar') {
-                const motivo = document.getElementById('motivo_rechazo').value.trim();
-                
-                if (!motivo) {
-                    mostrarMensaje('⚠️ El motivo del rechazo es obligatorio.', 'error');
-                    document.getElementById('motivo_rechazo').focus();
-                    return;
-                }
-                
-                if (motivo.length < 10) {
-                    mostrarMensaje('⚠️ El motivo debe tener al menos 10 caracteres.', 'error');
-                    document.getElementById('motivo_rechazo').focus();
-                    return;
-                }
-            }
+<script>
+    let _finalizando = false;
+    async function registrarRegreso() {
+        console.log('[registrarRegreso] llamada _finalizando=' + _finalizando);
+        if (_finalizando) { console.warn('[registrarRegreso] bloqueado'); return; }
+        _finalizando = true;
 
-            // Confirmar acción
-            const confirmaciones = {
-                'aprobar': '✅ ¿Aprobar este permiso?',
-                'rechazar': `❌ ¿Rechazar con motivo: "${document.getElementById('motivo_rechazo')?.value.substring(0, 50)}..."?`,
-                'cancelar': '🚫 ¿Cancelar definitivamente este permiso?'
-            };
-
-            if (!confirm(confirmaciones[accion])) {
-                return;
-            }
-
-            // Mostrar estado de carga
-            container.classList.add('loading');
-            mostrarMensaje('⏳ Procesando...', 'info');
-
-            // Preparar datos - INCLUIR PERSONA ENCARGADA SI EXISTE
-            const formData = new FormData(form);
-            formData.append('accion', accion);
-            
-            // Agregar persona encargada si el gerente puede editarla
-            const encargadoField = document.getElementById('encargado_ausencia_gerente');
-            if (encargadoField) {
-                formData.append('encargado_ausencia', encargadoField.value.trim());
-            }
-
-            console.log('📤 Enviando datos:', {
-                accion: accion,
-                id_permiso: formData.get('id_permiso'),
-                motivo_rechazo: formData.get('motivo_rechazo')?.substring(0, 50) + '...',
-                encargado_ausencia: formData.get('encargado_ausencia') || 'No especificado'
-            });
-
-            // Enviar petición AJAX
-            fetch('permisos_acciones.php', {
-                method: 'POST',
-                credentials: 'same-origin',
-                headers: {
-                    'Accept': 'application/json'
-                },
-                body: formData
-            })
-            .then(response => {
-                console.log('📥 Respuesta HTTP status:', response.status);
-                if (!response.ok) {
-                    return response.text().then(text => { 
-                        throw new Error(`HTTP ${response.status}: ${text}`); 
-                    });
-                }
-                return response.text().then(txt => {
-                    console.log('📄 Respuesta cruda:', txt);
-                    try {
-                        return JSON.parse(txt);
-                    } catch (e) {
-                        throw new Error(`Respuesta no es JSON válido: ${txt}`);
-                    }
-                });
-            })
-            .then(data => {
-                container.classList.remove('loading');
-                console.log('✅ Datos procesados:', data);
-                
-                if (data && data.success) {
-                    const mensajes = {
-                        'aprobar': '✅ Permiso aprobado exitosamente',
-                        'rechazar': '📝 Permiso rechazado y enviado de vuelta',
-                        'cancelar': '🚫 Permiso cancelado definitivamente'
-                    };
-                    
-                    mostrarMensaje(mensajes[accion] || data.message, 'success');
-                    
-                    // Ocultar formulario de acciones
-                    const actionsSection = document.querySelector('.actions-section');
-                    if (actionsSection) actionsSection.style.display = 'none';
-                    
-                    // Redirigir después de 2 segundos
-                    setTimeout(() => {
-                        window.location.href = '<?= $panelRegreso ?>?msg=' + encodeURIComponent(mensajes[accion]);
-                    }, 2000);
-                } else {
-                    const error = data?.error || 'Error desconocido al procesar la solicitud';
-                    mostrarMensaje('❌ Error: ' + error, 'error');
-                    console.error('❌ Error del servidor:', data);
-                }
-            })
-            .catch(error => {
-                container.classList.remove('loading');
-                console.error('💥 Error de fetch:', error);
-                mostrarMensaje('🔌 Error: ' + error.message, 'error');
-            });
-        }
-
-        function mostrarMensaje(mensaje, tipo) {
-            const container = document.getElementById('mensaje-container');
-            const className = tipo === 'success' ? 'success-message' : (tipo === 'info' ? 'info-message' : 'error-message');
-            container.innerHTML = `<div class="${className}">${mensaje}</div>`;
-            container.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-
-        // Inicializar contador cuando carga la página
-        document.addEventListener('DOMContentLoaded', function() {
-            const textarea = document.getElementById('motivo_rechazo');
-            if (textarea) {
-                actualizarContador();
-            }
+        const res = await Swal.fire({
+            title: '¿Registrar tu regreso?',
+            text: 'Se registrará la hora actual como tu hora de regreso y el permiso quedará finalizado.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: '📍 Sí, registrar regreso',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#0d9488',
+            cancelButtonColor: '#adb5bd',
         });
 
-        function actualizarCampos() {
-            const form = document.getElementById('formActualizarCampos');
-            const container = document.querySelector('.container');
-            
-            // Validar campos
-            const motivo = document.getElementById('motivo_edit').value.trim();
-            const fechaSalida = document.getElementById('fecha_salida_edit').value;
-            const horaSalida = document.getElementById('hora_salida_edit').value;
-            const fechaRegreso = document.getElementById('fecha_regreso_edit').value;
-            const horaRegreso = document.getElementById('hora_regreso_edit').value;
-            
-            console.log('🔍 Datos a enviar:', {
-                motivo: motivo,
-                fechaSalida: fechaSalida,
-                horaSalida: horaSalida,
-                fechaRegreso: fechaRegreso,
-                horaRegreso: horaRegreso
-            });
-            
-            if (!motivo || !fechaSalida || !horaSalida || !fechaRegreso || !horaRegreso) {
-                mostrarMensaje('⚠️ Todos los campos son obligatorios.', 'error');
+        if (!res.isConfirmed) {
+            _finalizando = false;
+            return;
+        }
+
+        Swal.fire({ title: 'Registrando...', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+
+        const fd = new FormData();
+        fd.append('id_permiso', <?= (int)$permiso['id_permiso'] ?>);
+
+        fetch('finalizar_permiso.php', { method: 'POST', credentials: 'same-origin', body: fd })
+        .then(r => r.json())
+        .then(data => {
+            console.log('[registrarRegreso] respuesta:', data);
+            if (data.success) {
+                Swal.fire({
+                    icon: 'success',
+                    title: '¡Regreso registrado!',
+                    html: `Tu regreso fue registrado a las <strong>${data.hora_regreso}</strong>.<br>Tiempo de ausencia: <strong>${data.tiempo_total_ausencia}</strong>`,
+                    confirmButtonText: 'Ir al panel',
+                    confirmButtonColor: '#0d9488',
+                }).then(() => {
+                    window.location.href = '<?= $panelRegreso ?>';
+                });
+            } else {
+                _finalizando = false;
+                Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'No se pudo registrar el regreso.' });
+            }
+        })
+        .catch(err => {
+            console.error('[registrarRegreso] error:', err.message);
+            _finalizando = false;
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message });
+        });
+    }
+
+    let _procesando = false;
+
+    async function procesarAccion(accion) {
+        console.log('[procesarAccion] llamada accion=' + accion + ' _procesando=' + _procesando);
+        if (_procesando) { console.warn('[procesarAccion] bloqueado — ya en proceso'); return; }
+        _procesando = true;
+        console.log('[procesarAccion] flag activado');
+        const form = document.getElementById('formAccion');
+
+        if (accion === 'rechazar') {
+            const motivo = document.getElementById('motivo_rechazo').value.trim();
+            if (!motivo) {
+                _procesando = false;
+                Swal.fire({ icon: 'warning', title: 'Campo requerido', text: 'El motivo del rechazo es obligatorio.' });
+                document.getElementById('motivo_rechazo').focus();
                 return;
             }
-            
             if (motivo.length < 10) {
-                mostrarMensaje('⚠️ El motivo debe tener al menos 10 caracteres.', 'error');
-                document.getElementById('motivo_edit').focus();
+                _procesando = false;
+                Swal.fire({ icon: 'warning', title: 'Texto muy corto', text: 'El motivo debe tener al menos 10 caracteres.' });
+                document.getElementById('motivo_rechazo').focus();
                 return;
             }
-            
-            // Validar fechas
-            const ahora = new Date();
-            const salidaDateTime = new Date(fechaSalida + ' ' + horaSalida);
-            const regresoDateTime = new Date(fechaRegreso + ' ' + horaRegreso);
-            
-            if (salidaDateTime < ahora) {
-                mostrarMensaje('⚠️ La fecha y hora de salida no puede ser en el pasado.', 'error');
-                return;
-            }
-            
-            if (regresoDateTime <= salidaDateTime) {
-                mostrarMensaje('⚠️ La fecha y hora de regreso debe ser posterior a la de salida.', 'error');
-                return;
-            }
-            
-            if (!confirm('💾 ¿Actualizar los campos del permiso?')) {
-                return;
-            }
-            
-            // Mostrar estado de carga
-            container.classList.add('loading');
-            mostrarMensaje('⏳ Actualizando campos...', 'info');
-            
-            // Enviar datos
-            const formData = new FormData(form);
-            
-            // Debug: mostrar todos los datos del FormData
-            console.log('📤 FormData completo:');
-            for (let [key, value] of formData.entries()) {
-                console.log(`  ${key}: ${value}`);
-            }
-            
-            fetch('actualizar_campos_permiso.php', {
-                method: 'POST',
-                credentials: 'same-origin',
-                body: formData
-            })
-            .then(response => {
-                console.log('📥 Status:', response.status);
-                return response.text();
-            })
-            .then(text => {
-                console.log('📄 Respuesta cruda:', text);
-                try {
-                    return JSON.parse(text);
-                } catch (e) {
-                    throw new Error(`Respuesta no es JSON válido: ${text}`);
-                }
-            })
-            .then(data => {
-                container.classList.remove('loading');
-                console.log('✅ Datos procesados:', data);
-                
-                if (data.success) {
-                    mostrarMensaje('✅ Campos actualizados correctamente. Ahora puedes reenviar el permiso.', 'success');
-                    
-                    // Actualizar los valores mostrados en la página (opcional)
-                    if (data.debug && data.debug.valores_actualizados) {
-                        console.log('🔄 Actualizando interfaz con nuevos valores...');
-                    }
-                } else {
-                    mostrarMensaje('❌ Error: ' + (data.error || 'Error desconocido'), 'error');
-                    console.error('❌ Error del servidor:', data);
-                }
-            })
-            .catch(error => {
-                container.classList.remove('loading');
-                console.error('💥 Error completo:', error);
-                mostrarMensaje('🔌 Error de conexión: ' + error.message, 'error');
-            });
         }
-        
-        function reenviarPermiso() {
-            const container = document.querySelector('.container');
-            const idPermiso = <?= $permiso['id_permiso'] ?>;
-            
-            if (!confirm('🔄 ¿Reenviar este permiso corregido?')) {
-                return;
-            }
-            
-            // Mostrar estado de carga
-            container.classList.add('loading');
-            mostrarMensaje('⏳ Reenviando permiso...', 'info');
-            
-            // Preparar datos
-            const formData = new FormData();
-            formData.append('id_permiso', idPermiso);
-            
-            fetch('reenviar_permiso.php', {
-                method: 'POST',
-                credentials: 'same-origin',
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                container.classList.remove('loading');
-                
-                if (data.success) {
-                    mostrarMensaje('✅ Permiso reenviado correctamente', 'success');
-                    
-                    // Ocultar formulario de edición
-                    const editarContainer = document.getElementById('editar-container');
-                    if (editarContainer) editarContainer.style.display = 'none';
-                    
-                    // Redirigir después de 2 segundos
-                    setTimeout(() => {
-                        window.location.href = '<?= $panelRegreso ?>?msg=' + encodeURIComponent('Permiso reenviado exitosamente');
-                    }, 2000);
-                } else {
-                    mostrarMensaje('❌ Error: ' + (data.error || 'Error desconocido'), 'error');
-                }
-            })
-            .catch(error => {
-                container.classList.remove('loading');
-                mostrarMensaje('🔌 Error de conexión: ' + error.message, 'error');
-            });
+
+        const textos = {
+            aprobar:  { title: '¿Aprobar este permiso?',           icon: 'question', confirm: '✅ Sí, aprobar',   color: '#28a745' },
+            rechazar: { title: '¿Rechazar este permiso?',          icon: 'warning',  confirm: '❌ Sí, rechazar',  color: '#dc3545' },
+            cancelar: { title: '¿Cancelar definitivamente?',       icon: 'warning',  confirm: '🚫 Sí, cancelar', color: '#6c757d' },
+        };
+
+        const t = textos[accion];
+        const resultado = await Swal.fire({
+            title: t.title,
+            icon: t.icon,
+            showCancelButton: true,
+            confirmButtonText: t.confirm,
+            cancelButtonText: 'No, volver',
+            confirmButtonColor: t.color,
+            cancelButtonColor: '#adb5bd',
+        });
+        if (!resultado.isConfirmed) {
+            console.log('[procesarAccion] cancelado por usuario');
+            _procesando = false;
+            return;
         }
-    </script>
+
+        console.log('[procesarAccion] confirmado — enviando fetch accion=' + accion);
+        Swal.fire({ title: 'Procesando...', allowOutsideClick: false, allowEscapeKey: false, didOpen: () => Swal.showLoading() });
+
+        const formData = new FormData(form);
+        formData.set('accion', accion);
+
+        const encargadoField = document.getElementById('encargado_ausencia_gerente');
+        if (encargadoField) formData.set('encargado_ausencia', encargadoField.value.trim());
+
+        fetch('permisos_acciones.php', {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json' },
+            body: formData
+        })
+        .then(r => {
+            if (!r.ok) return r.text().then(t => { throw new Error(`HTTP ${r.status}: ${t}`); });
+            return r.text().then(txt => {
+                try { return JSON.parse(txt); }
+                catch (e) { throw new Error('Respuesta no es JSON válido: ' + txt); }
+            });
+        })
+        .then(data => {
+            console.log('[procesarAccion] respuesta servidor:', data);
+            if (data && data.success) {
+                const mensajes = {
+                    aprobar:  '✅ Permiso aprobado exitosamente',
+                    rechazar: '📝 Permiso rechazado y enviado de vuelta',
+                    cancelar: '🚫 Permiso cancelado definitivamente',
+                };
+                Swal.fire({
+                    icon: 'success', title: '¡Listo!',
+                    text: mensajes[accion] || data.message,
+                    timer: 2000, timerProgressBar: true, showConfirmButton: false,
+                }).then(() => {
+                    window.location.href = '<?= $panelRegreso ?>?msg=' + encodeURIComponent(mensajes[accion]);
+                });
+            } else {
+                console.error('[procesarAccion] error del servidor:', data?.error);
+                _procesando = false;
+                Swal.fire({ icon: 'error', title: 'Error', text: data?.error || 'Error desconocido al procesar la solicitud.' });
+            }
+        })
+        .catch(err => {
+            console.error('[procesarAccion] error de red:', err.message);
+            _procesando = false;
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message });
+        });
+    }
+
+    let _guardando = false;
+    async function actualizarCampos() {
+        if (_guardando) return;
+        _guardando = true;
+        const motivo      = document.getElementById('motivo_edit').value.trim();
+        const fechaSalida = document.getElementById('fecha_salida_edit').value;
+        const horaSalida  = document.getElementById('hora_salida_edit').value;
+        const fechaReg    = document.getElementById('fecha_regreso_edit').value;
+        const horaReg     = document.getElementById('hora_regreso_edit').value;
+
+        if (!motivo || !fechaSalida || !horaSalida || !fechaReg || !horaReg) {
+            _guardando = false;
+            Swal.fire({ icon: 'warning', title: 'Campos incompletos', text: 'Todos los campos son obligatorios.' });
+            return;
+        }
+        if (motivo.length < 10) {
+            _guardando = false;
+            Swal.fire({ icon: 'warning', title: 'Texto muy corto', text: 'El motivo debe tener al menos 10 caracteres.' });
+            return;
+        }
+
+        const salidaDT  = new Date(fechaSalida + 'T' + horaSalida);
+        const regresoDT = new Date(fechaReg + 'T' + horaReg);
+        if (salidaDT < new Date()) {
+            _guardando = false;
+            Swal.fire({ icon: 'warning', title: 'Fecha inválida', text: 'La fecha y hora de salida no puede ser en el pasado.' });
+            return;
+        }
+        if (regresoDT <= salidaDT) {
+            _guardando = false;
+            Swal.fire({ icon: 'warning', title: 'Fechas inválidas', text: 'La fecha y hora de regreso debe ser posterior a la de salida.' });
+            return;
+        }
+
+        const res = await Swal.fire({
+            title: '¿Guardar cambios?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: '💾 Sí, guardar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#f39c12',
+            cancelButtonColor: '#adb5bd',
+        });
+        if (!res.isConfirmed) {
+            _guardando = false;
+            return;
+        }
+
+        Swal.fire({ title: 'Guardando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        const formData = new FormData(document.getElementById('formActualizarCampos'));
+        fetch('actualizar_campos_permiso.php', { method: 'POST', credentials: 'same-origin', body: formData })
+        .then(r => r.text())
+        .then(txt => { try { return JSON.parse(txt); } catch (e) { throw new Error('Respuesta no es JSON válido: ' + txt); } })
+        .then(data => {
+            _guardando = false;
+            if (data.success) {
+                Swal.fire({ icon: 'success', title: '¡Guardado!', text: 'Datos actualizados. Ahora puedes reenviar el permiso.', timer: 2500, timerProgressBar: true, showConfirmButton: false });
+            } else {
+                Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'Error desconocido.' });
+            }
+        })
+        .catch(err => {
+            _guardando = false;
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message });
+        });
+    }
+
+    let _reenviando = false;
+    async function reenviarPermiso() {
+        if (_reenviando) return;
+        _reenviando = true;
+        const res = await Swal.fire({
+            title: '¿Reenviar este permiso corregido?',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: '🔄 Sí, reenviar',
+            cancelButtonText: 'Cancelar',
+            confirmButtonColor: '#17a2b8',
+            cancelButtonColor: '#adb5bd',
+        });
+        if (!res.isConfirmed) {
+            _reenviando = false;
+            return;
+        }
+        Swal.fire({ title: 'Reenviando...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+
+        const formData = new FormData();
+        formData.append('id_permiso', <?= (int)$permiso['id_permiso'] ?>);
+
+        fetch('reenviar_permiso.php', { method: 'POST', credentials: 'same-origin', body: formData })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                Swal.fire({ icon: 'success', title: '¡Reenviado!', text: 'Permiso reenviado correctamente.', timer: 2000, timerProgressBar: true, showConfirmButton: false })
+                .then(() => { window.location.href = '<?= $panelRegreso ?>?msg=' + encodeURIComponent('Permiso reenviado exitosamente'); });
+            } else {
+                _reenviando = false;
+                Swal.fire({ icon: 'error', title: 'Error', text: data.error || 'Error desconocido.' });
+            }
+        })
+        .catch(err => {
+            _reenviando = false;
+            Swal.fire({ icon: 'error', title: 'Error de conexión', text: err.message });
+        });
+    }
+</script>
 </body>
 </html>

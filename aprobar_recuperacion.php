@@ -16,19 +16,33 @@ try {
 		if (!$id_rec) throw new Exception('ID inválido');
 
 		if ($accion === 'aprobar') {
-			$stmt = $pdo->prepare("UPDATE recuperacion_tiempo SET estado='aprobado', aprobado_por = ?, fecha_aprobacion = CURRENT_DATE, hora_aprobacion = CURRENT_TIME WHERE id_recuperacion = ?");
+			$pdo->beginTransaction();
+			$chk = $pdo->prepare("SELECT id_recuperacion FROM recuperacion_tiempo WHERE id_recuperacion = ? AND estado = 'pendiente' FOR UPDATE");
+			$chk->execute([$id_rec]);
+			if (!$chk->fetch()) {
+				$pdo->rollBack();
+				throw new Exception('La solicitud ya fue procesada o no existe.');
+			}
+			$stmt = $pdo->prepare("UPDATE recuperacion_tiempo SET estado='aprobado', aprobado_por = ?, fecha_aprobacion = CURRENT_DATE, hora_aprobacion = CURRENT_TIME WHERE id_recuperacion = ? AND estado = 'pendiente'");
 			$stmt->execute([$_SESSION['usuario_id'], $id_rec]);
+			$pdo->commit();
 			$mensaje = 'Solicitud aprobada';
-			// Notificar al usuario
 			try {
 				sendAprobacionRecuperacionCorreo($pdo, $id_rec);
 			} catch (Exception $e) {
 				error_log("Error enviando correo de aprobación al usuario (ID_rec: $id_rec): " . $e->getMessage());
 			}
 		} elseif ($accion === 'rechazar') {
-			$motivo = trim($_POST['motivo'] ?? '');
-			$stmt = $pdo->prepare("UPDATE recuperacion_tiempo SET estado='rechazado', tiempo_recuperado = '00:00:00' WHERE id_recuperacion = ?");
+			$pdo->beginTransaction();
+			$chk = $pdo->prepare("SELECT id_recuperacion FROM recuperacion_tiempo WHERE id_recuperacion = ? AND estado = 'pendiente' FOR UPDATE");
+			$chk->execute([$id_rec]);
+			if (!$chk->fetch()) {
+				$pdo->rollBack();
+				throw new Exception('La solicitud ya fue procesada o no existe.');
+			}
+			$stmt = $pdo->prepare("UPDATE recuperacion_tiempo SET estado='rechazado', tiempo_recuperado = '00:00:00' WHERE id_recuperacion = ? AND estado = 'pendiente'");
 			$stmt->execute([$id_rec]);
+			$pdo->commit();
 			$mensaje = 'Solicitud rechazada';
 		}
 	}

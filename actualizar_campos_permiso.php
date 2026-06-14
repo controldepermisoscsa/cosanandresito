@@ -34,10 +34,15 @@ try {
     if ($ts_salida === false || $ts_regreso === false) throw new Exception('Fechas u horas inválidas');
     if ($ts_regreso <= $ts_salida) throw new Exception('La fecha de regreso debe ser posterior a la de salida');
 
-    // Verificar que el permiso pertenece al usuario y está rechazado
-    $stmt = $pdo->prepare("SELECT id_permiso FROM permisos WHERE id_permiso = ? AND id_usuario = ? AND estado = 'rechazado'");
+    $pdo->beginTransaction();
+
+    // Verificar estado dentro de la transacción para evitar race condition
+    $stmt = $pdo->prepare("SELECT id_permiso FROM permisos WHERE id_permiso = ? AND id_usuario = ? AND estado = 'rechazado' FOR UPDATE");
     $stmt->execute([$id_permiso, $id_usuario]);
-    if (!$stmt->fetch()) throw new Exception('Permiso no encontrado o no válido para editar');
+    if (!$stmt->fetch()) {
+        $pdo->rollBack();
+        throw new Exception('Permiso no encontrado, no te pertenece, o ya no está en estado rechazado');
+    }
 
     $stmt = $pdo->prepare("
         UPDATE permisos
@@ -46,11 +51,16 @@ try {
     ");
     $stmt->execute([$motivo, $fecha_salida, $hora_salida, $fecha_regreso, $hora_regreso, $id_permiso, $id_usuario]);
 
-    if ($stmt->rowCount() === 0) throw new Exception('No se pudieron actualizar los campos');
+    if ($stmt->rowCount() === 0) {
+        $pdo->rollBack();
+        throw new Exception('No se pudieron actualizar los campos');
+    }
 
+    $pdo->commit();
     echo json_encode(['success' => true, 'message' => 'Campos actualizados correctamente']);
 
 } catch (Exception $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
     error_log("Error en actualizar_campos_permiso.php: " . $e->getMessage());
     echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }

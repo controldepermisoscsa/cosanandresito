@@ -15,15 +15,33 @@ if (!$idPermiso) {
     exit();
 }
 
-$stmt = $pdo->prepare("UPDATE permisos SET estado = 'cancelado', asignado_a = NULL, id_asignado = NULL WHERE id_permiso = ?");
-$stmt->execute([$idPermiso]);
+try {
+    $pdo->beginTransaction();
 
-if ($stmt->rowCount() > 0) {
-    // Notificar
+    $stmt = $pdo->prepare("
+        UPDATE permisos
+        SET estado = 'cancelado', asignado_a = NULL, id_asignado = NULL
+        WHERE id_permiso = ?
+          AND estado NOT IN ('cancelado','finalizado')
+    ");
+    $stmt->execute([$idPermiso]);
+
+    if ($stmt->rowCount() === 0) {
+        $pdo->rollBack();
+        header('Location: gerente_inicio.php?msg=El permiso ya fue cancelado o finalizado');
+        exit();
+    }
+
+    $pdo->commit();
+
     $manager = new EstadoCorreoManager($pdo);
     $manager->gerenteCancela($idPermiso);
     header('Location: gerente_inicio.php?msg=Permiso cancelado correctamente');
-} else {
-    header('Location: gerente_inicio.php?msg=No se pudo cancelar el permiso');
+    exit();
+
+} catch (Exception $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
+    error_log("ERROR cancelar_permiso.php: " . $e->getMessage());
+    header('Location: gerente_inicio.php?msg=Error al cancelar el permiso');
+    exit();
 }
-exit;

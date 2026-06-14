@@ -145,7 +145,9 @@ try {
         throw new Exception("No se encontró usuario disponible para asignar el permiso (tipo: {$asignado_a})");
     }
 
-    // Insertar permiso con manejo mejorado de documento - CORREGIDO
+    // Insertar permiso dentro de una transacción para garantizar atomicidad
+    $pdo->beginTransaction();
+
     $stmt = $pdo->prepare("
         INSERT INTO permisos (
             id_usuario, tipo_permiso, motivo, documento_pdf,
@@ -169,7 +171,7 @@ try {
     ]);
 
     if (!$resultado) {
-        // Si falla la BD y hay archivo, eliminarlo
+        $pdo->rollBack();
         if ($documento_pdf && file_exists(__DIR__ . '/' . $documento_pdf)) {
             unlink(__DIR__ . '/' . $documento_pdf);
         }
@@ -177,6 +179,7 @@ try {
     }
 
     $id_permiso = $pdo->lastInsertId();
+    $pdo->commit();
 
     // 🔥 NUEVO SISTEMA DE CORREOS SEPARADO Y ORGANIZADO
     $correoManager = new EstadoCorreoManager($pdo);
@@ -342,9 +345,10 @@ try {
     ]);
 
 } catch (Exception $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
     error_log("Error en crear_permiso_procesar.php: " . $e->getMessage());
     echo json_encode([
-        'success' => false, 
+        'success' => false,
         'error' => $e->getMessage(),
         'debug_info' => [
             'archivo' => basename(__FILE__),

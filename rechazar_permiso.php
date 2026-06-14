@@ -18,27 +18,35 @@ if (!isset($_SESSION['usuario_id']) || !in_array(strtolower($_SESSION['cargo'] ?
 }
 
 try {
-    // Obtener información del permiso y solicitante
+    $pdo->beginTransaction();
+
     $stmt = $pdo->prepare("
-        SELECT p.id_usuario, u.nombre, c.nombre_cargo
+        SELECT p.id_usuario, p.estado, u.nombre, c.nombre_cargo
         FROM permisos p
         INNER JOIN usuarios u ON p.id_usuario = u.id_usuario
         INNER JOIN cargo c ON u.id_cargo = c.id_cargo
         WHERE p.id_permiso = ?
+        FOR UPDATE
     ");
     $stmt->execute([$idPermiso]);
     $permiso = $stmt->fetch(PDO::FETCH_ASSOC);
 
     if (!$permiso) {
+        $pdo->rollBack();
         header('Location: gerente_inicio.php?msg=Permiso no encontrado');
         exit();
     }
 
+    if (!in_array($permiso['estado'], ['pendiente', 'reenviado'])) {
+        $pdo->rollBack();
+        header('Location: gerente_inicio.php?msg=El permiso ya fue procesado previamente');
+        exit();
+    }
+
     $cargo_solicitante = strtolower(trim($permiso['nombre_cargo']));
-    $id_solicitante = $permiso['id_usuario'];
+    $id_solicitante    = $permiso['id_usuario'];
 
     if ($cargo_solicitante === 'auxiliar') {
-        // reasignar a coordinador
         $stmt_coord = $pdo->prepare("
             SELECT u.id_usuario FROM usuarios u
             INNER JOIN cargo c ON u.id_cargo = c.id_cargo
@@ -54,21 +62,24 @@ try {
     }
 
     $stmt = $pdo->prepare("
-        UPDATE permisos 
-        SET estado = 'rechazado', 
-            asignado_a = ?, 
-            id_asignado = ?, 
+        UPDATE permisos
+        SET estado = 'rechazado',
+            asignado_a = ?,
+            id_asignado = ?,
             motivo_rechazo = ?
         WHERE id_permiso = ?
+          AND estado IN ('pendiente','reenviado')
     ");
     $stmt->execute([$asignado_a, $id_asignado_final, $motivo, $idPermiso]);
 
     if ($stmt->rowCount() === 0) {
-        header('Location: gerente_inicio.php?msg=No se pudo actualizar el permiso');
+        $pdo->rollBack();
+        header('Location: gerente_inicio.php?msg=El permiso ya fue procesado por otra sesión');
         exit();
     }
 
-    // Notificaciones
+    $pdo->commit();
+
     $manager = new EstadoCorreoManager($pdo);
     if ($cargo_solicitante === 'auxiliar' && $id_asignado_final) {
         $manager->gerenteRechazaAuxiliar($idPermiso, $id_asignado_final, $motivo);
@@ -80,6 +91,7 @@ try {
     exit();
 
 } catch (Exception $e) {
+    if ($pdo->inTransaction()) $pdo->rollBack();
     error_log("ERROR rechazar_permiso.php: " . $e->getMessage());
     header('Location: gerente_inicio.php?msg=Error al rechazar la solicitud');
     exit();

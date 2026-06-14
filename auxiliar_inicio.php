@@ -15,7 +15,7 @@ if ($cargo_usuario !== 'auxiliar') {
     exit();
 }
 
-// Consultar los permisos del auxiliar - CORREGIDO
+// Consultar los permisos del auxiliar
 $stmt = $pdo->prepare("
     SELECT *, asignado_a, id_asignado FROM permisos
     WHERE (asignado_a = 'auxiliar' AND (id_asignado = :id_auxiliar OR id_asignado IS NULL))
@@ -27,6 +27,19 @@ $stmt->execute([
     'id_auxiliar_owner' => $_SESSION['usuario_id']
 ]);
 $permisos = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+// Calcular estadísticas
+$total     = count($permisos);
+$pendiente = count(array_filter($permisos, fn($p) => $p['estado'] === 'pendiente'));
+$aprobado  = count(array_filter($permisos, fn($p) => $p['estado'] === 'aprobado'));
+$rechazado = count(array_filter($permisos, fn($p) => $p['estado'] === 'rechazado'));
+$recientes = array_slice($permisos, 0, 5);
+
+// Fecha en español
+$dias_es   = ['domingo','lunes','martes','miércoles','jueves','viernes','sábado'];
+$meses_es  = ['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+$hoy       = new DateTime();
+$fecha_es  = ucfirst($dias_es[(int)$hoy->format('w')]) . ', ' . $hoy->format('d') . ' de ' . $meses_es[(int)$hoy->format('n') - 1] . ' de ' . $hoy->format('Y');
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -34,70 +47,391 @@ $permisos = $stmt->fetchAll(PDO::FETCH_ASSOC);
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Panel de Auxiliar</title>
+  <link rel="stylesheet" href="https://cdn.datatables.net/1.13.7/css/jquery.dataTables.min.css">
   <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
     body {
-      font-family: 'Arial', sans-serif;
-      margin: 0;
-      padding: 0;
+      font-family: 'Segoe UI', Arial, sans-serif;
       display: flex;
       height: 100vh;
-      background-color: #f4f4f9;
+      background: #f0f2f5;
+      overflow: hidden;
     }
+
+    /* ── SIDEBAR ── */
     .sidebar {
-      width: 250px;
-      background-color: #2c3e50; /* Fondo azul oscuro */
-      color: #ecf0f1; /* Texto claro */
+      width: 240px;
+      background: linear-gradient(180deg, #1a2535 0%, #2c3e50 100%);
       display: flex;
       flex-direction: column;
-      padding: 20px;
-      box-shadow: 2px 0 5px rgba(0, 0, 0, 0.2);
+      flex-shrink: 0;
+      box-shadow: 3px 0 15px rgba(0,0,0,0.3);
     }
-    .sidebar h2 {
-      margin: 0 0 20px;
-      font-size: 22px;
+
+    .sidebar-brand {
+      padding: 24px 20px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
       text-align: center;
-      color: #f39c12; /* Naranja más suave */
     }
-    .sidebar a {
-      color: #ecf0f1;
+    .sidebar-brand .brand-icon {
+      width: 48px; height: 48px;
+      background: linear-gradient(135deg, #f39c12, #e67e22);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      margin: 0 auto 10px;
+      box-shadow: 0 4px 12px rgba(243,156,18,0.4);
+    }
+    .sidebar-brand h2 {
+      color: #fff;
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+    }
+
+    .sidebar-user {
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255,255,255,0.08);
+    }
+    .sidebar-user .user-name {
+      color: #fff;
+      font-size: 13px;
+      font-weight: 600;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .sidebar-user .user-role {
+      color: #f39c12;
+      font-size: 11px;
+      margin-top: 2px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .sidebar-nav {
+      flex: 1;
+      padding: 16px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      color: #adb5bd;
       text-decoration: none;
-      padding: 10px 15px;
-      margin-bottom: 10px;
-      border-radius: 5px;
-      transition: background-color 0.3s;
-      display: block;
-      font-size: 16px;
+      padding: 11px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.2s;
     }
-    .sidebar a:hover {
-      background-color: #34495e; /* Hover azul más claro */
-    }
-    .sidebar a.activo {
-      background-color: #f39c12; /* Naranja más suave */
+    .nav-item:hover {
+      background: rgba(255,255,255,0.08);
       color: #fff;
     }
+    .nav-item.activo {
+      background: linear-gradient(135deg, #f39c12, #e67e22);
+      color: #fff;
+      box-shadow: 0 4px 12px rgba(243,156,18,0.35);
+    }
+    .nav-item .nav-icon { font-size: 18px; width: 22px; text-align: center; }
+
+    .sidebar-logout {
+      padding: 12px;
+      border-top: 1px solid rgba(255,255,255,0.08);
+    }
+    .sidebar-logout a {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #e74c3c;
+      text-decoration: none;
+      padding: 10px 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+    .sidebar-logout a:hover { background: rgba(231,76,60,0.15); }
+
+    /* ── CONTENT ── */
     .content {
       flex: 1;
-      padding: 20px;
       overflow-y: auto;
+      padding: 28px 32px;
     }
-    .content h1 {
-      color: #2c3e50;
-      font-size: 28px;
-      margin-bottom: 20px;
+
+    .page-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 28px;
+      flex-wrap: wrap;
+      gap: 12px;
     }
-    .btn {
-      padding: 10px 20px;
+    .page-header h1 {
+      font-size: 24px;
+      color: #1a2535;
+      font-weight: 700;
+    }
+    .page-header .fecha {
+      color: #6c757d;
+      font-size: 13px;
+    }
+
+    .btn-primary {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: linear-gradient(135deg, #f39c12, #e67e22);
       color: #fff;
       text-decoration: none;
-      border-radius: 5px;
-      background-color: #f39c12;
-      display: inline-block;
-      margin-top: 20px;
+      padding: 11px 22px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 600;
+      box-shadow: 0 4px 12px rgba(243,156,18,0.35);
+      transition: all 0.2s;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 18px rgba(243,156,18,0.45);
+    }
+
+    /* Stats cards */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+    .stat-card {
+      background: #fff;
+      border-radius: 14px;
+      padding: 20px;
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .stat-card:hover { transform: translateY(-3px); box-shadow: 0 6px 18px rgba(0,0,0,0.1); }
+
+    .stat-icon {
+      width: 48px; height: 48px;
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px;
+      flex-shrink: 0;
+    }
+    .stat-card.total     .stat-icon { background: #ebf5fb; }
+    .stat-card.pendiente .stat-icon { background: #fef9e7; }
+    .stat-card.aprobado  .stat-icon { background: #eafaf1; }
+    .stat-card.rechazado .stat-icon { background: #fdf2f8; }
+
+    .stat-info .stat-number {
+      font-size: 28px;
+      font-weight: 700;
+      color: #1a2535;
+      line-height: 1;
+    }
+    .stat-info .stat-label {
+      font-size: 12px;
+      color: #6c757d;
+      margin-top: 4px;
+      font-weight: 500;
+    }
+
+    /* Table card */
+    .table-card {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+      overflow: hidden;
+    }
+    .table-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 18px 24px;
+      border-bottom: 1px solid #f0f2f5;
+    }
+    .table-card-header h3 {
       font-size: 16px;
+      color: #1a2535;
+      font-weight: 700;
     }
-    .btn:hover {
-      background-color: #e67e22;
+    .table-card-header a {
+      font-size: 13px;
+      color: #f39c12;
+      text-decoration: none;
+      font-weight: 600;
     }
+    .table-card-header a:hover { text-decoration: underline; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    thead th {
+      background: #f8f9fa;
+      padding: 12px 20px;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #6c757d;
+      font-weight: 600;
+      text-align: left;
+    }
+    tbody tr {
+      border-bottom: 1px solid #f0f2f5;
+      transition: background 0.15s;
+    }
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: #fafbfc; }
+    tbody td {
+      padding: 14px 20px;
+      font-size: 14px;
+      color: #2c3e50;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+    .badge-pendiente  { background: #fff3cd; color: #856404; }
+    .badge-aprobado   { background: #d1e7dd; color: #0a3622; }
+    .badge-rechazado  { background: #f8d7da; color: #842029; }
+    .badge-reenviado  { background: #cff4fc; color: #055160; }
+    .badge-cancelado  { background: #e2e3e5; color: #41464b; }
+    .badge-finalizado { background: #d3d3d3; color: #383838; }
+
+    .btn-ver {
+      background: #f0f4ff;
+      color: #3a5bd9;
+      border: none;
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.2s;
+    }
+    .btn-ver:hover { background: #dce5ff; }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #adb5bd;
+    }
+    .empty-state .empty-icon { font-size: 40px; margin-bottom: 10px; }
+    .empty-state p { font-size: 14px; }
+
+    /* ── DATATABLES OVERRIDES ── */
+    .dataTables_wrapper { font-family: 'Segoe UI', Arial, sans-serif; }
+    .dt-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 20px 10px;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .dt-bottom {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 20px 16px;
+      flex-wrap: wrap;
+      gap: 8px;
+      border-top: 1px solid #f0f2f5;
+    }
+    .dataTables_wrapper .dataTables_filter label,
+    .dataTables_wrapper .dataTables_length label {
+      font-size: 13px;
+      color: #6c757d;
+      font-weight: 500;
+    }
+    .dataTables_wrapper .dataTables_filter input {
+      border: 1.5px solid #dee2e6;
+      border-radius: 10px;
+      padding: 7px 12px;
+      font-size: 13px;
+      color: #1a2535;
+      margin-left: 8px;
+      outline: none;
+      font-family: inherit;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+    .dataTables_wrapper .dataTables_filter input:focus {
+      border-color: #f39c12;
+      box-shadow: 0 0 0 3px rgba(243,156,18,0.12);
+    }
+    .dataTables_wrapper .dataTables_length select {
+      border: 1.5px solid #dee2e6;
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 13px;
+      color: #1a2535;
+      margin: 0 6px;
+      outline: none;
+      font-family: inherit;
+      cursor: pointer;
+    }
+    .dataTables_wrapper .dataTables_info {
+      font-size: 12px;
+      color: #6c757d;
+    }
+    .dataTables_wrapper .dataTables_paginate .paginate_button {
+      border-radius: 8px !important;
+      font-size: 13px !important;
+      padding: 5px 11px !important;
+      color: #495057 !important;
+      border: 1px solid transparent !important;
+      background: none !important;
+      box-shadow: none !important;
+      transition: background 0.15s !important;
+      cursor: pointer;
+    }
+    .dataTables_wrapper .dataTables_paginate .paginate_button:hover {
+      background: #f0f2f5 !important;
+      color: #1a2535 !important;
+      border-color: transparent !important;
+    }
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current,
+    .dataTables_wrapper .dataTables_paginate .paginate_button.current:hover {
+      background: linear-gradient(135deg, #f39c12, #e67e22) !important;
+      color: #fff !important;
+      border-color: transparent !important;
+      box-shadow: 0 3px 8px rgba(243,156,18,0.35) !important;
+    }
+    .dataTables_wrapper .dataTables_paginate .paginate_button.disabled,
+    .dataTables_wrapper .dataTables_paginate .paginate_button.disabled:hover {
+      color: #adb5bd !important;
+      cursor: default;
+    }
+    .dataTables_wrapper table.dataTable thead th {
+      cursor: pointer;
+    }
+    .dataTables_wrapper table.dataTable thead .sorting::after,
+    .dataTables_wrapper table.dataTable thead .sorting_asc::after,
+    .dataTables_wrapper table.dataTable thead .sorting_desc::after {
+      opacity: 0.5;
+    }
+    .dataTables_wrapper table.dataTable tbody tr.odd  { background: #fff; }
+    .dataTables_wrapper table.dataTable tbody tr.even { background: #fafbfc; }
+    .dataTables_wrapper table.dataTable.no-footer { border-bottom: none; }
+
+    /* Mantener margin para widget */
+    .content { margin-bottom: 0; }
     
     /* Estilos para el widget movible (idénticos al admin) */
     .widget-tiempo-ausencia {
@@ -360,25 +694,132 @@ $permisos = $stmt->fetchAll(PDO::FETCH_ASSOC);
   </style>
 </head>
 <body>
-  <!-- Panel lateral -->
+  <!-- SIDEBAR -->
   <div class="sidebar">
-    <h2>Panel de Auxiliar</h2>
-    <a href="solicitar_permiso.php">Solicitar Permiso</a>
-    <?php if (!in_array(strtolower(trim($_SESSION['cargo'] ?? '')), ['gerente','gerencia'])): ?>
-        <a href="recuperar_tiempo.php">Recuperar Tiempo</a>
-    <?php endif; ?>
-    <a href="logout.php">Cerrar Sesión</a>
+    <div class="sidebar-brand">
+      <div class="brand-icon">📋</div>
+      <h2>Coosanandresito</h2>
+    </div>
+    <div class="sidebar-user">
+      <div class="user-name"><?= htmlspecialchars($_SESSION['nombre']) ?></div>
+      <div class="user-role">Auxiliar</div>
+    </div>
+    <nav class="sidebar-nav">
+      <a href="auxiliar_inicio.php" class="nav-item activo">
+        <span class="nav-icon">🏠</span> Inicio
+      </a>
+      <a href="solicitar_permiso.php?nuevo=1" class="nav-item">
+        <span class="nav-icon">📝</span> Solicitar Permiso
+      </a>
+      <a href="ver_permisos.php" class="nav-item">
+        <span class="nav-icon">📂</span> Mis Permisos
+      </a>
+      <a href="recuperar_tiempo.php" class="nav-item">
+        <span class="nav-icon">⏱️</span> Recuperar Tiempo
+      </a>
+    </nav>
+    <div class="sidebar-logout">
+      <a href="logout.php">
+        <span style="font-size:16px;">🚪</span> Cerrar Sesión
+      </a>
+    </div>
   </div>
-  <!-- Contenido principal -->
+
+  <!-- CONTENIDO -->
   <div class="content">
-    <h1>Bienvenido, <?= htmlspecialchars($_SESSION['nombre']) ?></h1>
-    <p>Desde este panel puedes gestionar tus permisos de manera sencilla:</p>
-    <ul>
-      <li><strong>Ver Mis Permisos:</strong> Consulta el historial de tus permisos.</li>
-      <li><strong>Solicitar Permiso:</strong> Realiza una nueva solicitud de permiso.</li>
-      <li><strong>Cerrar Sesión:</strong> Sal de tu cuenta de forma segura.</li>
-    </ul>
-    <a href="ver_permisos.php" class="btn">Ver Mis Permisos</a>
+
+    <div class="page-header">
+      <div>
+        <h1>Bienvenido, <?= htmlspecialchars(explode(' ', $_SESSION['nombre'])[0]) ?> 👋</h1>
+        <span class="fecha"><?= $fecha_es ?></span>
+      </div>
+      <a href="solicitar_permiso.php?nuevo=1" class="btn-primary">
+        <span>＋</span> Nuevo Permiso
+      </a>
+    </div>
+
+    <!-- TARJETAS DE ESTADÍSTICAS -->
+    <div class="stats-grid">
+      <div class="stat-card total">
+        <div class="stat-icon">📋</div>
+        <div class="stat-info">
+          <div class="stat-number"><?= $total ?></div>
+          <div class="stat-label">Total Solicitudes</div>
+        </div>
+      </div>
+      <div class="stat-card pendiente">
+        <div class="stat-icon">⏳</div>
+        <div class="stat-info">
+          <div class="stat-number"><?= $pendiente ?></div>
+          <div class="stat-label">Pendientes</div>
+        </div>
+      </div>
+      <div class="stat-card aprobado">
+        <div class="stat-icon">✅</div>
+        <div class="stat-info">
+          <div class="stat-number"><?= $aprobado ?></div>
+          <div class="stat-label">Aprobados</div>
+        </div>
+      </div>
+      <div class="stat-card rechazado">
+        <div class="stat-icon">❌</div>
+        <div class="stat-info">
+          <div class="stat-number"><?= $rechazado ?></div>
+          <div class="stat-label">Rechazados</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLA DE SOLICITUDES (DataTables) -->
+    <div class="table-card">
+      <div class="table-card-header" style="justify-content:center;">
+        <h3>Mis Solicitudes de Permiso</h3>
+      </div>
+      <?php if (empty($permisos)): ?>
+        <div class="empty-state">
+          <div class="empty-icon">📭</div>
+          <p>Aún no tienes solicitudes de permiso.</p>
+        </div>
+      <?php else: ?>
+      <table id="tablaPermisos" style="width:100%">
+        <thead>
+          <tr>
+            <th>#</th>
+            <th>Tipo</th>
+            <th>Fecha Salida</th>
+            <th>Motivo</th>
+            <th>Estado</th>
+            <th>Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($permisos as $p): ?>
+          <tr>
+            <td><?= $p['id_permiso'] ?></td>
+            <td><?= htmlspecialchars($p['tipo_permiso'] ?? '—') ?></td>
+            <td data-order="<?= $p['fecha_salida'] ?? '' ?>">
+              <?php if (isset($p['fecha_salida'])): ?>
+                <?= date('d/m/Y', strtotime($p['fecha_salida'])) ?>
+                <?php if (!empty($p['hora_salida'])): ?>
+                  <span style="color:#6c757d;font-size:12px;display:block;"><?= date('g:i A', strtotime($p['hora_salida'])) ?></span>
+                <?php endif; ?>
+              <?php else: ?>—<?php endif; ?>
+            </td>
+            <td><?= htmlspecialchars($p['motivo'] ?? '—') ?></td>
+            <td>
+              <span class="badge badge-<?= $p['estado'] ?>">
+                <?= ucfirst($p['estado']) ?>
+              </span>
+            </td>
+            <td>
+              <a href="ver_solicitud.php?id=<?= $p['id_permiso'] ?>" class="btn-ver">Ver</a>
+            </td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+      <?php endif; ?>
+    </div>
 
   </div>
   
@@ -886,6 +1327,40 @@ $permisos = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
     `;
     document.head.appendChild(style);
+  </script>
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.datatables.net/1.13.7/js/jquery.dataTables.min.js"></script>
+  <script>
+    $(document).ready(function () {
+      $('#tablaPermisos').DataTable({
+        dom: '<"dt-top"lf>t<"dt-bottom"ip>',
+        pageLength: 10,
+        order: [[2, 'desc']],
+        columnDefs: [
+          { orderable: false, targets: 5 }
+        ],
+        language: {
+          decimal:        ',',
+          thousands:      '.',
+          emptyTable:     'No hay solicitudes disponibles',
+          info:           'Mostrando _START_ a _END_ de _TOTAL_ solicitudes',
+          infoEmpty:      'Mostrando 0 a 0 de 0 solicitudes',
+          infoFiltered:   '(filtrado de _MAX_ solicitudes en total)',
+          lengthMenu:     'Mostrar _MENU_ solicitudes',
+          loadingRecords: 'Cargando...',
+          processing:     'Procesando...',
+          search:         'Buscar:',
+          zeroRecords:    'No se encontraron solicitudes coincidentes',
+          paginate: {
+            first:    '«',
+            last:     '»',
+            next:     '›',
+            previous: '‹',
+          },
+        },
+      });
+    });
   </script>
 </body>
 </html>
